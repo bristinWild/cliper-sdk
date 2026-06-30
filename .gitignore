@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.cliper/cache/
+*.js.map
+.env
+
+# Cliper — auto-managed
+package-lock.json
+.cliper/prompt-*.md
+.cliper/*
+
+.cliper/
+.env
+*.log
