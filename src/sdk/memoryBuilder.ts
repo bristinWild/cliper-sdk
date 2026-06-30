@@ -5,6 +5,7 @@ import { FileContent } from "../scanner/fileContent";
 import { DependencyMap } from "../scanner/dependencies"
 import { Gap } from "../gaps/detector";
 import simpleGit from "simple-git";
+import { SemanticLabel } from "../scanner/semanticLabels";
 
 
 interface FileSummary {
@@ -27,6 +28,7 @@ interface BuildMemoryOptions {
     gaps: Gap[];
     dependencyMap: DependencyMap;
     gitContext: GitContext;
+    semanticLabels: SemanticLabel[];
 }
 
 interface CommitSummary {
@@ -59,6 +61,42 @@ interface ReleaseSummary {
     commit: string;
     date: string;
     message: string;
+}
+
+interface RepositoryStats {
+
+    files: number;
+
+    commits: number;
+
+    releases: number;
+
+    dependencies: number;
+
+    externalPackages: number;
+
+    architectureModules: number;
+
+    gaps: {
+        high: number;
+        medium: number;
+        low: number;
+    };
+
+}
+
+interface TimelineEvent {
+
+    date: string;
+
+    type: "commit" | "release";
+
+    title: string;
+
+    description: string;
+
+    relatedId: string;
+
 }
 
 export class MemoryBuilder {
@@ -380,7 +418,8 @@ ${commit.timeAgo}
 
     buildFileMemories(
         files: FileContent[],
-        dependencyMap: DependencyMap
+        dependencyMap: DependencyMap,
+        semanticLabels: SemanticLabel[]
     ): MemoryObject[] {
 
         return files.map(file => {
@@ -389,6 +428,11 @@ ${commit.timeAgo}
                 file,
                 dependencyMap
             );
+
+            const semantic =
+                semanticLabels.find(
+                    s => s.file === file.relativePath
+                );
 
             return {
 
@@ -400,14 +444,17 @@ ${commit.timeAgo}
 
                 content: this.buildFileSummaryContent(summary),
 
-                metadata: summary,
+                metadata: {
+                    ...summary,
+                    semantic
+                },
 
                 tags: [
-                    summary.category
+                    summary.category,
+                    ...(semantic?.tags ?? [])
                 ],
 
                 relationships: summary.imports
-
             };
 
         });
@@ -789,31 +836,32 @@ ${file.relativePath}
 
         const git = simpleGit(projectRoot);
 
-        const tags = await git.tags();
+        const output = await git.raw([
+            "for-each-ref",
+            "--sort=-creatordate",
+            "--format=%(refname:short)|%(objectname)|%(creatordate:iso8601)|%(subject)",
+            "refs/tags"
+        ]);
 
-        const releases: ReleaseSummary[] = [];
-
-        for (const tag of tags.all) {
-
-            const output = await git.raw([
-                "show",
-                "--quiet",
-                "--format=%H%n%cI%n%s",
-                tag
-            ]);
-
-            const [commit, date, message] =
-                output.trim().split("\n");
-
-            releases.push({
-                tag,
-                commit,
-                date,
-                message
-            });
+        if (!output.trim()) {
+            return [];
         }
 
-        return releases;
+        return output
+            .trim()
+            .split("\n")
+            .map(line => {
+                const [tag, commit, date, message] =
+                    line.split("|");
+
+                return {
+                    tag,
+                    commit,
+                    date,
+                    message
+                };
+            });
+
     }
 
 
@@ -848,7 +896,7 @@ ${release.date}
 
 Message:
 ${release.message}
-        `.trim(),
+`.trim(),
 
             metadata: release,
 
@@ -861,6 +909,260 @@ ${release.message}
             ]
 
         }));
+
+    }
+
+    private async buildRepositoryStats(
+        projectRoot: string,
+        files: FileContent[],
+        dependencyMap: DependencyMap,
+        gaps: Gap[],
+        gitContext: GitContext
+    ): Promise<RepositoryStats> {
+
+        const releases = await this.buildReleaseSummaries(
+            projectRoot,
+            gitContext
+        );
+
+        return {
+
+            files: files.length,
+
+            commits:
+                1 + gitContext.recentCommits.length,
+
+            releases: releases.length,
+
+            dependencies:
+                dependencyMap.edges.length,
+
+            externalPackages:
+                dependencyMap.externalPackages.length,
+
+            architectureModules:
+                new Set(
+                    dependencyMap.edges.map(e => e.from)
+                ).size,
+
+            gaps: {
+
+                high: gaps.filter(
+                    g => g.severity === "high"
+                ).length,
+
+                medium: gaps.filter(
+                    g => g.severity === "medium"
+                ).length,
+
+                low: gaps.filter(
+                    g => g.severity === "low"
+                ).length,
+
+            }
+
+        };
+
+    }
+
+    async buildRepositoryStatisticsMemory(
+        projectRoot: string,
+        files: FileContent[],
+        dependencyMap: DependencyMap,
+        gaps: Gap[],
+        gitContext: GitContext
+    ): Promise<MemoryObject[]> {
+
+        const stats =
+            await this.buildRepositoryStats(
+                projectRoot,
+                files,
+                dependencyMap,
+                gaps,
+                gitContext
+            );
+
+        return [{
+
+            id: "statistics",
+
+            type: "repository",
+
+            title: "Repository Statistics",
+
+            content: `
+                Repository Statistics
+
+                Files:
+                ${stats.files}
+
+                Commits:
+                ${stats.commits}
+
+                Releases:
+                ${stats.releases}
+
+                Dependencies:
+                ${stats.dependencies}
+
+                External Packages:
+                ${stats.externalPackages}
+
+                Architecture Modules:
+                ${stats.architectureModules}
+
+                High Severity Gaps:
+                ${stats.gaps.high}
+
+                Medium Severity Gaps:
+                ${stats.gaps.medium}
+
+                Low Severity Gaps:
+                ${stats.gaps.low}
+                `.trim(),
+
+            metadata: stats,
+
+            tags: [
+                "repository",
+                "statistics"
+            ],
+
+            relationships: []
+
+        }];
+
+    }
+
+
+    private async buildTimelineEvents(
+        projectRoot: string,
+        gitContext: GitContext
+    ): Promise<TimelineEvent[]> {
+
+        if (!gitContext.isGitRepo) {
+            return [];
+        }
+
+        const releases =
+            await this.buildReleaseSummaries(
+                projectRoot,
+                gitContext
+            );
+
+        const events: TimelineEvent[] = [];
+
+        for (const commit of gitContext.recentCommits) {
+
+            events.push({
+
+                date: commit.date,
+
+                type: "commit",
+
+                title: commit.message,
+
+                description: commit.message,
+
+                relatedId: commit.hash
+
+            });
+
+        }
+
+        if (gitContext.lastCommit) {
+
+            events.push({
+
+                date: gitContext.lastCommit.date,
+
+                type: "commit",
+
+                title: gitContext.lastCommit.message,
+
+                description: gitContext.lastCommit.message,
+
+                relatedId: gitContext.lastCommit.hash
+
+            });
+
+        }
+
+        for (const release of releases) {
+
+            events.push({
+
+                date: release.date,
+
+                type: "release",
+
+                title: release.tag,
+
+                description: release.message,
+
+                relatedId: release.tag
+
+            });
+
+        }
+
+        return events.sort(
+            (a, b) =>
+                new Date(b.date).getTime() -
+                new Date(a.date).getTime()
+        );
+
+    }
+
+    async buildTimelineMemories(
+        projectRoot: string,
+        gitContext: GitContext
+    ): Promise<MemoryObject[]> {
+
+        const events =
+            await this.buildTimelineEvents(
+                projectRoot,
+                gitContext
+            );
+
+        if (events.length === 0) {
+            return [];
+        }
+
+        return [{
+
+            id: "timeline",
+
+            type: "timeline",
+
+            title: "Project Timeline",
+
+            content: `
+Project Timeline
+
+${events.map(event => `
+${event.date}
+
+${event.type.toUpperCase()}
+
+${event.title}
+
+${event.description}
+`).join("\n")}
+`.trim(),
+
+            metadata: {
+                eventCount: events.length
+            },
+
+            tags: [
+                "timeline"
+            ],
+
+            relationships:
+                events.map(e => e.relatedId)
+
+        }];
 
     }
 
@@ -880,7 +1182,8 @@ ${release.message}
         memories.push(
             ...this.buildFileMemories(
                 options.files,
-                options.dependencyMap
+                options.dependencyMap,
+                options.semanticLabels
             )
         );
 
@@ -926,7 +1229,24 @@ ${release.message}
         );
 
         memories.push(
+            ...await this.buildRepositoryStatisticsMemory(
+                options.projectRoot,
+                options.files,
+                options.dependencyMap,
+                options.gaps,
+                options.gitContext
+            )
+        );
+
+        memories.push(
             ...await this.buildReleaseMemories(
+                options.projectRoot,
+                options.gitContext
+            )
+        );
+
+        memories.push(
+            ...await this.buildTimelineMemories(
                 options.projectRoot,
                 options.gitContext
             )

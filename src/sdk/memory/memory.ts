@@ -1,14 +1,15 @@
 export type MemoryType =
-    | "repository"
     | "file"
     | "commit"
-    | "release"
     | "gap"
     | "dependency"
     | "package"
+    | "git"
     | "architecture"
     | "responsibility"
-    | "git";
+    | "repository"
+    | "release"
+    | "timeline";
 
 export interface MemoryObject {
 

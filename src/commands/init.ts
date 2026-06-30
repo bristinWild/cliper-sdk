@@ -14,6 +14,7 @@ import { detectGaps } from "../gaps/detector";
 import { buildContextDoc } from "../context/builder";
 import { CogneeProvider } from "../providers/cognee/provider";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
+import { buildSemanticLabels } from "../scanner/semanticLabels";
 
 const provider = new CogneeProvider();
 
@@ -26,6 +27,7 @@ interface InitOptions {
 export async function initCommand(options: InitOptions): Promise<void> {
   const projectRoot = path.resolve(options.path);
   const builder = new MemoryBuilder();
+
 
 
   if (!fs.existsSync(projectRoot)) {
@@ -64,6 +66,8 @@ export async function initCommand(options: InitOptions): Promise<void> {
   );
 
   contentSpinner.succeed(chalk.green(`Extracted ${files.length} files`));
+
+  const semanticLabels = buildSemanticLabels(files);
 
   // Step 4: Git context
   const gitSpinner = ora("Reading git context...").start();
@@ -138,6 +142,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       gaps,
       dependencyMap,
       gitContext,
+      semanticLabels,
     });
     try {
       await provider.upload(
