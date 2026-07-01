@@ -6,6 +6,7 @@ import { DependencyMap } from "../scanner/dependencies"
 import { Gap } from "../gaps/detector";
 import simpleGit from "simple-git";
 import { SemanticLabel } from "../scanner/semanticLabels";
+import { MemoryDeduplicator } from "./memoryDeduplicator";
 
 
 interface FileSummary {
@@ -1166,6 +1167,120 @@ ${event.description}
 
     }
 
+    private buildIssueMemories(
+        gitContext: GitContext
+    ): MemoryObject[] {
+
+        return gitContext.issues.map(issue => ({
+
+            id: `issue:${issue.number}`,
+
+            type: "issue",
+
+            title: `#${issue.number} ${issue.title}`,
+
+            content: `
+Issue:
+#${issue.number}
+
+Title:
+${issue.title}
+
+State:
+${issue.state}
+
+Author:
+${issue.author}
+
+Labels:
+${issue.labels.join(", ") || "None"}
+
+Created:
+${issue.createdAt}
+
+Updated:
+${issue.updatedAt}
+
+GitHub:
+${issue.url}
+`.trim(),
+
+            metadata: issue,
+
+            tags: [
+                "github",
+                "issue",
+                issue.state,
+                ...issue.labels
+            ],
+
+            relationships: []
+
+        }));
+
+    }
+
+    private buildPullRequestMemories(
+        gitContext: GitContext
+    ): MemoryObject[] {
+
+        return gitContext.pullRequests.map(pr => ({
+
+            id: `pr:${pr.number}`,
+
+            type: "pull-request",
+
+            title: `PR #${pr.number} ${pr.title}`,
+
+            content: `
+Pull Request:
+#${pr.number}
+
+Title:
+${pr.title}
+
+State:
+${pr.state}
+
+Merged:
+${pr.merged}
+
+Author:
+${pr.author}
+
+Base:
+${pr.baseBranch}
+
+Head:
+${pr.headBranch}
+
+Created:
+${pr.createdAt}
+
+Updated:
+${pr.updatedAt}
+
+GitHub:
+${pr.url}
+`.trim(),
+
+            metadata: pr,
+
+            tags: [
+                "github",
+                "pull-request",
+                pr.state,
+                ...(pr.merged ? ["merged"] : [])
+            ],
+
+            relationships: [
+                "repository"
+            ]
+
+        }));
+
+    }
+
     async build(
         options: BuildMemoryOptions
     ): Promise<MemoryObject[]> {
@@ -1252,7 +1367,22 @@ ${event.description}
             )
         );
 
-        return memories;
+        memories.push(
+            ...this.buildIssueMemories(
+                options.gitContext
+            )
+        );
+
+        memories.push(
+            ...this.buildPullRequestMemories(
+                options.gitContext
+            )
+        );
+
+        const deduplicator =
+            new MemoryDeduplicator();
+
+        return deduplicator.deduplicate(memories);
     }
 
 

@@ -43,4 +43,4 @@ Memory Relationships
 
 Repository Intelligence
 ✅ Semantic Labels
-⏳ Memory Deduplication (planned for v0.2)
+✅ Memory Deduplication (planned for v0.2)

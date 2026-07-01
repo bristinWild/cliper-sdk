@@ -63,11 +63,7 @@ Generate a complete semantic representation of a repository.
 
 Status:
 
-**97% Complete**
-
-### Remaining
-
-- [ ] Memory Deduplication
+**Done**
 
 ---
 

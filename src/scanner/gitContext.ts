@@ -1,4 +1,8 @@
 import simpleGit from "simple-git";
+import { fetchGithubIssues } from "./githubIssues";
+import { getGithubRepo } from "./github";
+import { GitHubIssue } from "./githubIssues";
+import { fetchGithubPullRequests, GitHubPullRequest } from "./githubPullRequests";
 
 export interface GitContext {
   branch: string;
@@ -18,6 +22,8 @@ export interface GitContext {
   }>;
   uncommittedChanges: string[];
   isGitRepo: boolean;
+  issues: GitHubIssue[];
+  pullRequests: GitHubPullRequest[];
 }
 
 function timeAgo(dateStr: string): string {
@@ -36,7 +42,18 @@ export async function getGitContext(projectRoot: string): Promise<GitContext> {
   try {
     const isRepo = await git.checkIsRepo();
     if (!isRepo) {
-      return { branch: "", lastCommit: null, recentCommits: [], uncommittedChanges: [], isGitRepo: false };
+      return { branch: "", lastCommit: null, recentCommits: [], uncommittedChanges: [], isGitRepo: false, issues: [], pullRequests: [] };
+    }
+    const githubRepo = await getGithubRepo(projectRoot);
+
+    let issues: GitHubIssue[] = [];
+    let pullRequests: GitHubPullRequest[] = [];
+
+    if (githubRepo) {
+      [issues, pullRequests] = await Promise.all([
+        fetchGithubIssues(githubRepo.owner, githubRepo.repo),
+        fetchGithubPullRequests(githubRepo.owner, githubRepo.repo)
+      ]);
     }
 
     const [branch, log, status] = await Promise.all([
@@ -46,6 +63,7 @@ export async function getGitContext(projectRoot: string): Promise<GitContext> {
     ]);
 
     const [latest, ...rest] = log.all;
+
 
     return {
       isGitRepo: true,
@@ -71,8 +89,11 @@ export async function getGitContext(projectRoot: string): Promise<GitContext> {
         ...status.created,
         ...status.deleted,
       ],
+
+      issues,
+      pullRequests
     };
   } catch {
-    return { branch: "", lastCommit: null, recentCommits: [], uncommittedChanges: [], isGitRepo: false };
+    return { branch: "", lastCommit: null, recentCommits: [], uncommittedChanges: [], isGitRepo: false, issues: [], pullRequests: [] };
   }
 }

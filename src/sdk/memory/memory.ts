@@ -9,7 +9,9 @@ export type MemoryType =
     | "responsibility"
     | "repository"
     | "release"
-    | "timeline";
+    | "timeline"
+    | "issue"
+    | "pull-request";
 
 export interface MemoryObject {
 
