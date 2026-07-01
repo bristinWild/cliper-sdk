@@ -9,6 +9,7 @@ export interface GitHubPullRequest {
     baseBranch: string;
     headBranch: string;
     url: string;
+    commits: string[];
 }
 
 
@@ -42,18 +43,34 @@ export async function fetchGithubPullRequests(
 
         const prs = (await res.json()) as GithubPRResponse[];
 
-        return prs.map(pr => ({
-            number: pr.number,
-            title: pr.title,
-            state: pr.state,
-            author: pr.user.login,
-            createdAt: pr.created_at,
-            updatedAt: pr.updated_at,
-            merged: pr.merged_at !== null,
-            baseBranch: pr.base.ref,
-            headBranch: pr.head.ref,
-            url: pr.html_url
-        }));
+        const result: GitHubPullRequest[] = [];
+
+        for (const pr of prs) {
+
+            const commitsRes = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/pulls/${pr.number}/commits`
+            );
+
+            const commits = commitsRes.ok
+                ? ((await commitsRes.json()) as any[]).map(c => c.sha.substring(0, 7))
+                : [];
+
+            result.push({
+                number: pr.number,
+                title: pr.title,
+                state: pr.state,
+                author: pr.user.login,
+                createdAt: pr.created_at,
+                updatedAt: pr.updated_at,
+                merged: pr.merged_at !== null,
+                baseBranch: pr.base.ref,
+                headBranch: pr.head.ref,
+                url: pr.html_url,
+                commits,
+            });
+        }
+
+        return result;
 
     } catch {
         return [];

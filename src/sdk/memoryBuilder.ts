@@ -411,7 +411,10 @@ ${commit.timeAgo}
 
             tags: ["git", "commit"],
 
-            relationships: commit.filesChanged,
+            relationships: [
+                "repository",
+                ...commit.filesChanged.map(file => `file:${file}`)
+            ],
 
         }));
     }
@@ -817,7 +820,10 @@ ${file.relativePath}
 
                 "package.json",
 
-                "README.md"
+                "README.md",
+
+                "timeline",
+                "statistics"
 
             ].filter(Boolean)
 
@@ -906,6 +912,7 @@ ${release.message}
             ],
 
             relationships: [
+                "repository",
                 release.commit
             ]
 
@@ -1160,8 +1167,10 @@ ${event.description}
                 "timeline"
             ],
 
-            relationships:
-                events.map(e => e.relatedId)
+            relationships: [
+                "repository",
+                ...events.map(e => e.relatedId)
+            ]
 
         }];
 
@@ -1214,7 +1223,9 @@ ${issue.url}
                 ...issue.labels
             ],
 
-            relationships: []
+            relationships: [
+                "repository"
+            ]
 
         }));
 
@@ -1223,6 +1234,8 @@ ${issue.url}
     private buildPullRequestMemories(
         gitContext: GitContext
     ): MemoryObject[] {
+
+
 
         return gitContext.pullRequests.map(pr => ({
 
@@ -1244,6 +1257,9 @@ ${pr.state}
 
 Merged:
 ${pr.merged}
+
+Commits:
+${pr.commits.join("\n") || "None"}
 
 Author:
 ${pr.author}
@@ -1274,7 +1290,10 @@ ${pr.url}
             ],
 
             relationships: [
-                "repository"
+                "repository",
+                `branch:${pr.headBranch}`,
+                `branch:${pr.baseBranch}`,
+                ...pr.commits,
             ]
 
         }));

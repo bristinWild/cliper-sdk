@@ -71,22 +71,38 @@ Status:
 
 Goal:
 
-Extend repository memories with GitHub metadata.
+Extend repository memories with GitHub metadata and connect repository history into a unified knowledge graph.
+
+Status:
+
+**In Progress (~30%)**
+
+---
+
+## GitHub Integration
 
 ### Issues
 
 - [ ] GitHub Authentication
-- [ ] Issue Memory
+- [x] Issue Memory
 - [ ] Issue Labels
 - [ ] Issue Assignees
 - [ ] Issue Milestones
+- [ ] Issue → File Relationships
+- [ ] Issue → Pull Request Relationships
+
+---
 
 ### Pull Requests
 
-- [ ] Pull Request Memory
+- [x] Pull Request Memory
+- [ ] Pull Request → Commit Relationships (partially implemented)
+- [ ] Pull Request → File Relationships
 - [ ] Review Memory
 - [ ] Reviewer Relationships
 - [ ] Merge History
+
+---
 
 ### Discussions
 
@@ -95,12 +111,32 @@ Extend repository memories with GitHub metadata.
 - [ ] Design Decisions
 - [ ] RFC Memory
 
+---
+
 ### Releases
 
 - [ ] GitHub Releases
 - [ ] Release Notes
 - [ ] Changelog Memory
 
+---
+
+## Knowledge Graph
+
+### Repository Relationships
+
+- [x] Repository → Commit
+- [x] Repository → Release
+- [x] Repository → Timeline
+- [x] Repository → Issue
+- [x] Repository → Pull Request
+
+### Graph Enrichment
+
+- [ ] Branch Memory
+- [ ] Contributor Memory
+- [ ] Review Graph
+- [ ] Development Timeline Expansion
 ---
 
 # Phase 3 - Incremental Sync
