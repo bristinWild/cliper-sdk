@@ -60,9 +60,11 @@ program
   .action(analyzeCommand);
 
 program
-  .command("auth")
-  .description("Authenticate with Cliper dashboard")
-  .action(authCommand);
+  .command("auth [provider]")
+  .description("Authenticate with Cliper or external providers (e.g. github)")
+  .action((provider?: string) => {
+    authCommand(provider);
+  });
 
 program
   .command("push")

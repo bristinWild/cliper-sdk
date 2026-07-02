@@ -89,15 +89,16 @@ Status:
 - [ ] Issue Assignees
 - [ ] Issue Milestones
 - [ ] Issue → File Relationships
-- [ ] Issue → Pull Request Relationships
+- [x] Issue → Pull Request Relationships
 
 ---
 
 ### Pull Requests
 
 - [x] Pull Request Memory
-- [ ] Pull Request → Commit Relationships (partially implemented)
-- [ ] Pull Request → File Relationships
+- [x] Pull Request → Commit Relationships 
+- [x] Pull Request → Repository Relationships
+- [x] Pull Request → File Relationships
 - [ ] Review Memory
 - [ ] Reviewer Relationships
 - [ ] Merge History
@@ -118,6 +119,14 @@ Status:
 - [ ] GitHub Releases
 - [ ] Release Notes
 - [ ] Changelog Memory
+
+---
+
+### Memory Relationships
+
+- [x] Commit → Changed Files
+- [x] Pull Request → Commit
+- [x] Pull Request → File
 
 ---
 

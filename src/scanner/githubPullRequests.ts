@@ -1,3 +1,6 @@
+import { getGithubHeaders } from "../auth/github";
+
+
 export interface GitHubPullRequest {
     number: number;
     title: string;
@@ -10,27 +13,22 @@ export interface GitHubPullRequest {
     headBranch: string;
     url: string;
     commits: string[];
+    issues: number[];
+    changedFiles: string[];
 }
 
+interface GithubCommitResponse {
+    sha: string;
+}
 
-export async function fetchGithubPullRequests(
-    owner: string,
-    repo: string
-): Promise<GitHubPullRequest[]> {
+interface GithubFileResponse {
+    filename: string;
+}
 
-    try {
-
-        const res = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`
-        );
-
-        if (!res.ok) {
-            return [];
-        }
-
-        interface GithubPRResponse {
+ interface GithubPRResponse {
             number: number;
             title: string;
+            body: string | null;
             state: "open" | "closed";
             user: { login: string };
             created_at: string;
@@ -41,6 +39,29 @@ export async function fetchGithubPullRequests(
             head: { ref: string };
         }
 
+
+export async function fetchGithubPullRequests(
+    owner: string,
+    repo: string
+): Promise<GitHubPullRequest[]> {
+
+    const headers = getGithubHeaders();
+
+    try {
+
+        const res = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/pulls?state=all&per_page=30`,
+            {
+                headers
+            }
+        );
+
+        if (!res.ok) {
+            return [];
+        }
+
+
+
         const prs = (await res.json()) as GithubPRResponse[];
 
         const result: GitHubPullRequest[] = [];
@@ -48,12 +69,34 @@ export async function fetchGithubPullRequests(
         for (const pr of prs) {
 
             const commitsRes = await fetch(
-                `https://api.github.com/repos/${owner}/${repo}/pulls/${pr.number}/commits`
+                `https://api.github.com/repos/${owner}/${repo}/pulls/${pr.number}/commits`,
+                {
+                    headers
+                }
             );
 
             const commits = commitsRes.ok
-                ? ((await commitsRes.json()) as any[]).map(c => c.sha.substring(0, 7))
+                ? ((await commitsRes.json()) as GithubCommitResponse[])
+                    .map(c => c.sha.substring(0, 7))
                 : [];
+
+            const filesRes = await fetch(
+                `https://api.github.com/repos/${owner}/${repo}/pulls/${pr.number}/files`,
+                {
+                    headers
+                }
+            );
+
+            const changedFiles = filesRes.ok
+                ? ((await filesRes.json()) as GithubFileResponse[])
+                    .map(file => file.filename)
+                : [];
+
+            const text = `${pr.title}\n${pr.body ?? ""}`;
+
+            const issues = [
+                ...text.matchAll(/#(\d+)/g)
+            ].map(match => Number(match[1]));
 
             result.push({
                 number: pr.number,
@@ -67,6 +110,8 @@ export async function fetchGithubPullRequests(
                 headBranch: pr.head.ref,
                 url: pr.html_url,
                 commits,
+                issues,
+                changedFiles
             });
         }
 

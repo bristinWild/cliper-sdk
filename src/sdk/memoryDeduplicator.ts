@@ -11,7 +11,7 @@ export class MemoryDeduplicator {
         for (const memory of memories) {
 
             unique.set(
-                `${memory.type}:${memory.id}`,
+                memory.id,
                 memory
             );
 

@@ -1,3 +1,5 @@
+import { getGithubHeaders } from "../auth/github";
+
 export interface GitHubIssue {
     number: number;
     title: string;
@@ -29,7 +31,10 @@ export async function fetchGithubIssues(
     try {
 
         const res = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30`
+            `https://api.github.com/repos/${owner}/${repo}/issues?state=open&per_page=30`,
+            {
+                headers: getGithubHeaders()
+            }
         );
 
         if (!res.ok) {

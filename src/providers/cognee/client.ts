@@ -37,7 +37,13 @@ async function uploadChunk(datasetName: string, label: string, content: string):
     try {
         const fileBuffer = fs.readFileSync(tmpPath);
         const form = new FormData();
-        form.append("data", new Blob([fileBuffer], { type: "text/markdown" }), `${label}.md`);
+        const safeLabel = label.replace(/[\/:]/g, "_");
+
+        form.append(
+            "data",
+            new Blob([fileBuffer], { type: "text/markdown" }),
+            `${safeLabel}.md`
+        );
         form.append("datasetName", datasetName);
 
         const res = await fetch(`${COGNEE_BASE_URL}/api/v1/add`, {
@@ -46,10 +52,13 @@ async function uploadChunk(datasetName: string, label: string, content: string):
             body: form,
         });
 
+        const body = await res.text();
+
         if (!res.ok) {
-            const errText = await res.text();
-            throw new Error(`/add failed for chunk "${label}": ${res.status} ${errText}`);
+            throw new Error(`/add failed (${label}): ${body}`);
         }
+
+
     } finally {
         fs.unlinkSync(tmpPath);
     }
@@ -76,7 +85,6 @@ export async function rememberContext(
     assertConfigured();
 
     const datasetName = `cliper-${projectName}`;
-
     const chunks = memories.map(memory => ({
 
         label: `${memory.type}:${memory.id}`,
@@ -125,9 +133,32 @@ ${memory.tags?.join(", ") ?? "None"}
         }
     }
 
-    for (let i = 0; i < chunks.length; i++) {
-        onProgress?.(i, chunks.length, chunks[i].label);
-        await uploadChunk(datasetName, chunks[i].label, chunks[i].content);
+    // for (let i = 0; i < chunks.length; i++) {
+    //     onProgress?.(i, chunks.length, chunks[i].label);
+    //     await uploadChunk(datasetName, chunks[i].label, chunks[i].content);
+    // }
+    console.log("Dataset being used:", datasetName);
+
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batch = chunks.slice(i, i + BATCH_SIZE);
+
+        await Promise.all(
+            batch.map((chunk, index) => {
+                onProgress?.(
+                    i + index,
+                    chunks.length,
+                    chunk.label
+                );
+
+                return uploadChunk(
+                    datasetName,
+                    chunk.label,
+                    chunk.content
+                );
+            })
+        );
     }
 
     const cognifyRes = await fetch(`${COGNEE_BASE_URL}/api/v1/cognify`, {
@@ -139,9 +170,15 @@ ${memory.tags?.join(", ") ?? "None"}
         body: JSON.stringify({ datasets: [datasetName] }),
     });
 
+    const cognifyBody = await cognifyRes.text();
+
+    console.log("Cognify status:", cognifyRes.status);
+    console.log(cognifyBody);
+
     if (!cognifyRes.ok) {
-        const errText = await cognifyRes.text();
-        throw new Error(`Cognee /cognify failed: ${cognifyRes.status} ${errText}`);
+        throw new Error(
+            `Cognee /cognify failed: ${cognifyRes.status} ${cognifyBody}`
+        );
     }
 }
 
@@ -162,6 +199,7 @@ export async function recallContext(
     assertConfigured();
 
     const datasetName = `cliper-${projectName}`;
+
 
     const res = await fetch(`${COGNEE_BASE_URL}/api/v1/search`, {
         method: "POST",

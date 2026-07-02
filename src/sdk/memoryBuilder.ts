@@ -380,7 +380,7 @@ ${gitContext.lastCommit?.message ?? "None"}
 
         return commits.map(commit => ({
 
-            id: commit.hash,
+            id: `commit:${commit.hash}`,
 
             type: "commit",
 
@@ -423,7 +423,8 @@ ${commit.timeAgo}
     buildFileMemories(
         files: FileContent[],
         dependencyMap: DependencyMap,
-        semanticLabels: SemanticLabel[]
+        semanticLabels: SemanticLabel[],
+        gitContext: GitContext
     ): MemoryObject[] {
 
         return files.map(file => {
@@ -438,9 +439,11 @@ ${commit.timeAgo}
                     s => s.file === file.relativePath
                 );
 
+            console.log(file.relativePath);
+
             return {
 
-                id: summary.path,
+                id: `file:${summary.path}`,
 
                 type: "file",
 
@@ -458,7 +461,15 @@ ${commit.timeAgo}
                     ...(semantic?.tags ?? [])
                 ],
 
-                relationships: summary.imports
+                relationships: [
+
+                    ...summary.imports.map(file => `file:${file}`),
+
+                    ...gitContext.pullRequests
+                        .filter(pr => pr.changedFiles.includes(summary.path))
+                        .map(pr => `pr:${pr.number}`)
+
+                ]
             };
 
         });
@@ -1224,7 +1235,10 @@ ${issue.url}
             ],
 
             relationships: [
-                "repository"
+                "repository",
+                ...gitContext.pullRequests
+                    .filter(pr => pr.issues.includes(issue.number))
+                    .map(pr => `pr:${pr.number}`)
             ]
 
         }));
@@ -1259,7 +1273,14 @@ Merged:
 ${pr.merged}
 
 Commits:
-${pr.commits.join("\n") || "None"}
+${pr.commits.length > 0
+                    ? pr.commits.join("\n")
+                    : "None"}
+
+Changed Files:
+${pr.changedFiles.length > 0
+                    ? pr.changedFiles.join("\n")
+                    : "None"}
 
 Author:
 ${pr.author}
@@ -1290,12 +1311,21 @@ ${pr.url}
             ],
 
             relationships: [
-                "repository",
-                `branch:${pr.headBranch}`,
-                `branch:${pr.baseBranch}`,
-                ...pr.commits,
-            ]
 
+                "repository",
+
+                `branch:${pr.headBranch}`,
+
+                `branch:${pr.baseBranch}`,
+
+                ...pr.commits.map(c => `commit:${c}`),
+
+                ...pr.issues.map(i => `issue:${i}`),
+
+                ...pr.changedFiles.map(file => `file:${file}`)
+
+
+            ]
         }));
 
     }
@@ -1317,7 +1347,8 @@ ${pr.url}
             ...this.buildFileMemories(
                 options.files,
                 options.dependencyMap,
-                options.semanticLabels
+                options.semanticLabels,
+                options.gitContext
             )
         );
 
