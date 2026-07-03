@@ -9,15 +9,21 @@ export const CONFIG_FILE =
     path.join(CLIPER_DIR, "config.json");
 
 export interface CliperConfig {
-
-    cliper?: {
-        token: string;
-    };
-
     github?: {
         token: string;
     };
 
+    cognee?: {
+        baseUrl: string;
+        apiKey: string;
+    };
+}
+
+export interface CliperCogneeConfigx {
+    cognee?: {
+        baseUrl: string;
+        apiKey: string;
+    };
 }
 
 export function loadConfig(): CliperConfig {
@@ -53,3 +59,4 @@ export function saveConfig(
     );
 
 }
+

@@ -1,13 +1,14 @@
 {
-  "name": "cliper",
-  "version": "0.1.0",
-  "description": "Generate rich, AI-ready context documents from your codebase. Always fresh, always scoped — for Claude, ChatGPT, and beyond.",
-  "main": "dist/index.js",
+  "name": "cliper-memory",
+  "version": "0.1.1",
+  "description": "Transform any repository into a persistent AI memory graph for AI assistants and coding agents.",
+  "main": "./dist/index.js",
   "bin": {
     "cliper": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "dev": "ts-node src/index.ts",
     "start": "node dist/index.js",
     "lint": "eslint src/**/*.ts"
@@ -24,16 +25,40 @@
     "node-fetch": "^3.3.2",
     "open": "^11.0.0",
     "ora": "^8.0.1",
-    "simple-git": "^3.22.0"
+    "simple-git": "^3.22.0",
+    "ws": "^8.21.0"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
     "@types/node": "^20.12.7",
+    "@types/ws": "^8.18.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   },
-  "license": "ISC",
+  "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "ai",
+    "codebase-memory",
+    "knowledge-graph",
+    "claude-code",
+    "cognee",
+    "developer-tools",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bristinWild/cliper-sdk.git"
+  },
+  "homepage": "https://github.com/bristinWild/cliper-sdk#readme",
+  "bugs": {
+    "url": "https://github.com/bristinWild/cliper-sdk/issues"
   }
 }

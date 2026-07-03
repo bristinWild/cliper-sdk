@@ -24,6 +24,10 @@ export interface GitContext {
   isGitRepo: boolean;
   issues: GitHubIssue[];
   pullRequests: GitHubPullRequest[];
+  remote?: string;
+  githubOwner?: string;
+  githubRepo?: string;
+
 }
 
 function timeAgo(dateStr: string): string {
@@ -91,7 +95,9 @@ export async function getGitContext(projectRoot: string): Promise<GitContext> {
       ],
 
       issues,
-      pullRequests
+      pullRequests,
+      githubOwner: githubRepo?.owner,
+      githubRepo: githubRepo?.repo,
     };
   } catch {
     return { branch: "", lastCommit: null, recentCommits: [], uncommittedChanges: [], isGitRepo: false, issues: [], pullRequests: [] };

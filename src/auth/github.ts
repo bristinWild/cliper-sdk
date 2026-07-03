@@ -1,4 +1,4 @@
-import { loadConfig, saveConfig } from "./config";
+import { loadConfig, saveConfig } from "../config/config"
 import chalk from "chalk";
 
 export function getGithubToken(): string | null {

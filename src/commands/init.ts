@@ -15,6 +15,7 @@ import { buildContextDoc } from "../context/builder";
 import { CogneeProvider } from "../providers/cognee/provider";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
+import { registerRepository } from "../api/backend";
 
 const provider = new CogneeProvider();
 
@@ -125,6 +126,25 @@ export async function initCommand(options: InitOptions): Promise<void> {
   fs.writeFileSync(contextPath, contextDoc, "utf-8");
   buildSpinner.succeed(chalk.green("Context document built"));
 
+
+  if (!gitContext.githubOwner || !gitContext.githubRepo) {
+    console.log(chalk.yellow("  ⚠ No GitHub remote detected — skipping backend registration"));
+  } else {
+    const regSpinner = ora("Registering repository with Cliper...").start();
+    try {
+      await registerRepository({
+        name: projectName,
+        githubOwner: gitContext.githubOwner,
+        githubRepo: gitContext.githubRepo,
+        branch: gitContext.branch,
+        dataset: `cliper-${projectName}`,
+      });
+      regSpinner.succeed(chalk.green("Repository registered with Cliper"));
+    } catch (err: any) {
+      regSpinner.fail(chalk.red(`Registration failed: ${err.message}`));
+    }
+  }
+
   // Step 8b: Push to Cognee memory (opt-in — only runs if configured)
   if (provider.isConfigured()) {
     const cogneeSpinner = ora("Syncing to Cognee memory...").start();
@@ -148,15 +168,23 @@ export async function initCommand(options: InitOptions): Promise<void> {
       await provider.upload(
         projectName,
         memories,
-        (done: number, total: number, label: string) => {
+        (done, total, label) => {
           cogneeSpinner.text =
             `Syncing to Cognee memory... (${done + 1}/${total}: ${label})`;
         },
         debugDir
       );
+
       cogneeSpinner.succeed(chalk.green("Cognee memory updated"));
+
+      // Register repository with Cliper backend
+
       if (debugDir) {
-        console.log(chalk.gray(`  (Uploaded chunks written to ${debugDir} for inspection)`));
+        console.log(
+          chalk.gray(
+            `  (Uploaded chunks written to ${debugDir} for inspection)`
+          )
+        );
       }
     } catch (err: any) {
       // Non-blocking: context.md is already built successfully on disk regardless.

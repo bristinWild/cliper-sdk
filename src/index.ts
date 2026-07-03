@@ -11,8 +11,13 @@ import { statusCommand } from "./commands/status";
 import { exportCommand } from "./commands/export";
 import { analyzeCommand } from "./commands/analyze";
 import { authCommand } from "./commands/auth";
-import { pushCommand } from "./commands/push";
-import { viewCommand } from "./commands/view";
+import { agentCommand } from "./commands/agent";
+
+program
+  .command("agent")
+  .description("Connect local AI coding agents to Cliper cloud")
+  .argument("<action>", "connect")
+  .action(agentCommand);
 
 const { version } = require("../package.json");
 const sdk = new Cliper();
@@ -61,19 +66,25 @@ program
 
 program
   .command("auth [provider]")
-  .description("Authenticate with Cliper or external providers (e.g. github)")
-  .action((provider?: string) => {
-    authCommand(provider);
+  .description("Authenticate with Cliper or external providers")
+  .action(async (provider?: string) => {
+    await authCommand(provider);
   });
 
-program
-  .command("push")
-  .description("Push context doc to Cliper dashboard")
-  .action(pushCommand);
+// program
+//   .command("push")
+//   .description("Push context doc to Cliper dashboard")
+//   .action(pushCommand);
+
+// program
+//   .command("view")
+//   .description("Open project dashboard in browser")
+//   .action(viewCommand);
 
 program
-  .command("view")
-  .description("Open project dashboard in browser")
-  .action(viewCommand);
+  .command("agent")
+  .description("Connect local AI coding agents to Cliper cloud")
+  .argument("<action>", "connect")
+  .action(agentCommand);
 
 program.parse(process.argv);
