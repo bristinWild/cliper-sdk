@@ -1,6 +1,6 @@
 import { loadConfig } from "../config/config";
 
-const API_URL = "http://localhost:4000";
+const API_URL = "http://127.0.0.1:4000";
 
 export async function registerRepository(data: {
     name: string;

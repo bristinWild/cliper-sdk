@@ -16,6 +16,7 @@ import { CogneeProvider } from "../providers/cognee/provider";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { registerRepository } from "../api/backend";
+import { hashChunkContent, saveManifest } from "../sdk/manifest";
 
 const provider = new CogneeProvider();
 
@@ -176,6 +177,12 @@ export async function initCommand(options: InitOptions): Promise<void> {
       );
 
       cogneeSpinner.succeed(chalk.green("Cognee memory updated"));
+      const manifestHashes: Record<string, string> = {};
+      for (const m of memories) {
+        const c = provider.chunk(m);
+        manifestHashes[c.label] = hashChunkContent(c.content);
+      }
+      saveManifest(projectRoot, `cliper-${projectName}`, manifestHashes);
 
       // Register repository with Cliper backend
 

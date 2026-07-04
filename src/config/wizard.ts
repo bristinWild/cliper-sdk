@@ -1,5 +1,7 @@
 import * as readline from "readline";
 import { loadConfig, saveConfig } from "./loader";
+import chalk from "chalk";
+import { loadConfig as loadFullConfig } from "./config";
 
 function ask(question: string): Promise<string> {
     const rl = readline.createInterface({
@@ -61,6 +63,33 @@ export async function configureCognee(): Promise<void> {
     };
 
     saveConfig(config);
+
+    // Sync Cognee credentials to the Cliper backend (per-user storage)
+    try {
+        const fullConfig = loadFullConfig();
+        const githubToken = fullConfig.github?.token;
+        if (githubToken) {
+
+
+            const API_URL = "http://localhost:4000";
+            const res = await fetch(`${API_URL}/auth/cognee`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${githubToken}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    baseUrl: finalBaseUrl,
+                    apiKey: finalApiKey,
+                }),
+            });
+            if (res.ok) {
+                console.log(chalk.green("  ✓ Cognee credentials synced to Cliper cloud"));
+            }
+        }
+    } catch {
+        console.log(chalk.gray("  (Saved locally; cloud sync skipped — server may be offline)"));
+    }
 
     console.log("");
     console.log("✔ Cognee configuration saved successfully.");
