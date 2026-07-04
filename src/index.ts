@@ -13,11 +13,6 @@ import { analyzeCommand } from "./commands/analyze";
 import { authCommand } from "./commands/auth";
 import { agentCommand } from "./commands/agent";
 
-program
-  .command("agent")
-  .description("Connect local AI coding agents to Cliper cloud")
-  .argument("<action>", "connect")
-  .action(agentCommand);
 
 const { version } = require("../package.json");
 const sdk = new Cliper();

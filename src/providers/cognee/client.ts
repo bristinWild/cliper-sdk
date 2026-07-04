@@ -64,6 +64,79 @@ async function uploadChunk(datasetName: string, label: string, content: string):
     }
 }
 
+export interface MemoryChunk {
+    label: string;
+    content: string;
+}
+
+/**
+ * The exact self-describing chunk format uploaded to Cognee.
+ * cliper sync hashes this same string — keep any format change in ONE place
+ * or every memory will look "changed" on the next sync.
+ */
+export function buildMemoryChunk(memory: MemoryObject): MemoryChunk {
+    return {
+        label: `${memory.type}:${memory.id}`,
+        content: `
+Memory Type:
+${memory.type}
+
+Title:
+${memory.title}
+
+Content:
+${memory.content}
+
+Metadata:
+${JSON.stringify(memory.metadata, null, 2)}
+
+Relationships:
+${memory.relationships?.join(", ") ?? "None"}
+
+Tags:
+${memory.tags?.join(", ") ?? "None"}
+`.trim(),
+    };
+}
+
+/**
+ * Uploads a specific set of chunks (already diffed by the caller) and
+ * triggers cognify once. Used by cliper sync for incremental updates.
+ */
+export async function rememberChunks(
+    datasetName: string,
+    chunks: MemoryChunk[],
+    onProgress?: (done: number, total: number, label: string) => void
+): Promise<void> {
+    assertConfigured();
+    if (chunks.length === 0) return;
+
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+        const batch = chunks.slice(i, i + BATCH_SIZE);
+        await Promise.all(
+            batch.map((chunk, index) => {
+                onProgress?.(i + index, chunks.length, chunk.label);
+                return uploadChunk(datasetName, chunk.label, chunk.content);
+            })
+        );
+    }
+
+    const cognifyRes = await fetch(`${COGNEE_BASE_URL}/api/v1/cognify`, {
+        method: "POST",
+        headers: {
+            "X-Api-Key": COGNEE_API_KEY,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ datasets: [datasetName] }),
+    });
+
+    if (!cognifyRes.ok) {
+        const body = await cognifyRes.text();
+        throw new Error(`Cognee /cognify failed: ${cognifyRes.status} ${body}`);
+    }
+}
+
 /**
  * Uploads structured project data into a Cognee dataset as self-describing,
  * sentence-phrased chunks (see buildCogneeChunks), then triggers cognify
@@ -85,31 +158,7 @@ export async function rememberContext(
     assertConfigured();
 
     const datasetName = `cliper-${projectName}`;
-    const chunks = memories.map(memory => ({
-
-        label: `${memory.type}:${memory.id}`,
-
-        content: `
-Memory Type:
-${memory.type}
-
-Title:
-${memory.title}
-
-Content:
-${memory.content}
-
-Metadata:
-${JSON.stringify(memory.metadata, null, 2)}
-
-Relationships:
-${memory.relationships?.join(", ") ?? "None"}
-
-Tags:
-${memory.tags?.join(", ") ?? "None"}
-`.trim()
-
-    }));
+    const chunks = memories.map(buildMemoryChunk);
 
     if (process.env.COGNEE_DEBUG) {
         console.log("\nCognee Chunks:");
@@ -137,7 +186,7 @@ ${memory.tags?.join(", ") ?? "None"}
     //     onProgress?.(i, chunks.length, chunks[i].label);
     //     await uploadChunk(datasetName, chunks[i].label, chunks[i].content);
     // }
-    console.log("Dataset being used:", datasetName);
+
 
     const BATCH_SIZE = 5;
 
@@ -172,8 +221,11 @@ ${memory.tags?.join(", ") ?? "None"}
 
     const cognifyBody = await cognifyRes.text();
 
-    console.log("Cognify status:", cognifyRes.status);
-    console.log(cognifyBody);
+    if (process.env.COGNEE_DEBUG) {
+        console.log("Dataset:", datasetName);
+        console.log("Cognify status:", cognifyRes.status);
+        console.log(cognifyBody);
+    }
 
     if (!cognifyRes.ok) {
         throw new Error(
