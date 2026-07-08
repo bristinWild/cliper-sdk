@@ -4,12 +4,14 @@ import {
     recallContext,
     isCogneeConfigured,
     buildMemoryChunk,
-    MemoryChunk,
+
 } from "./client";
 
 import { MemoryObject } from "../../sdk/memory/memory";
+import { MemoryChunk, MemoryProvider } from "../memoryProvider";
 
-export class CogneeProvider {
+export class CogneeProvider implements MemoryProvider {
+    readonly name = "cognee";
 
     isConfigured(): boolean {
         return isCogneeConfigured();
@@ -45,13 +47,11 @@ export class CogneeProvider {
         return rememberChunks(`cliper-${projectName}`, chunks, onProgress);
     }
 
-    async search(
-        projectName: string,
-        query: string
-    ) {
-        return recallContext(
-            projectName,
-            query
-        );
+    async search(projectName: string, query: string): Promise<string> {
+        const results = await recallContext(projectName, query);
+        return results
+            .flatMap((r) => r.search_result ?? [])
+            .join("\n\n")
+            .trim();
     }
 }
