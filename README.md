@@ -59,6 +59,7 @@ This installs the `cliper` binary.
 ```bash
 cliper auth
 ```
+![cliper auth](https://raw.githubusercontent.com/bristinWild/cliper-sdk/main/assets/auth.gif)
 
 This runs two configuration steps:
 
@@ -81,6 +82,9 @@ cliper init
 ```
 
 The full pipeline runs in one command:
+
+![cliper init in action](https://raw.githubusercontent.com/bristinWild/cliper-sdk/main/assets/init.gif)
+
 
 ```text
 ✔ Scope detected: 22 paths active, 0 watched
