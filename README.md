@@ -1,3 +1,9 @@
+[![npm version](https://img.shields.io/npm/v/cliper-memory)](https://www.npmjs.com/package/cliper-memory)
+[![license](https://img.shields.io/badge/license-MIT-6D5DFB)](./LICENSE)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-22C55E)](https://github.com/bristinWild/cliper-sdk/issues)
+
+![Chat with your codebase from anywhere](https://raw.githubusercontent.com/bristinWild/cliper-sdk/main/assets/app-flow.gif)
+
 # Cliper Memory 
 > **New to Cliper?** Start with the [friendly tour](https://github.com/bristinWild/cliper-sdk/blob/main/About-Cliper.md).
 
@@ -14,7 +20,7 @@ Repository
 cliper init            ← scan, extract, structure
     │
     ▼
-Structured Memories    ← 10+ typed memory objects
+Structured Memories    ← 13 typed memory objects
     │
     ▼
 Cognee Cloud           ← knowledge graph (cognify)
@@ -128,6 +134,21 @@ Detects locally installed agents (Claude Code, Codex, Cursor Agent), opens an au
 
 ---
 
+**Keep the memory fresh:**
+
+```bash
+cliper sync
+```
+
+Every memory is content-hashed into `.cliper/manifest.json`. Unchanged repo? Sync finishes in seconds with zero uploads. New commit? Only the delta ships:
+
+```text
+✔ Scanned 306 memories - 3 new, 2 changed, 285 unchanged
+✔ Cognee memory updated (5 memories)
+```
+
+Init once. Sync forever. Add `--watch` to auto-sync on new commits.
+
 ## Memory Types
 
 Cliper does not upload raw files. Each unit of knowledge is a **typed memory object** - titled, tagged, related, and self-describing - so the graph understands *what kind of thing* it is storing:
@@ -146,6 +167,7 @@ Cliper does not upload raw files. Each unit of knowledge is a **typed memory obj
 | **Timeline Memory** | The evolution of the repository over time |
 | **Issue Memory** | GitHub issues attached to the repository |
 | **Pull Request Memory** | GitHub PRs with their commit and file linkage |
+| **Gap Memory** | Undocumented patterns and risky corners, ranked by severity |
 
 ## Relationship Graph
 
@@ -159,7 +181,7 @@ Repository ──▶ Timeline
 File ──▶ Dependency            Commit ──▶ Changed Files
 File ──▶ Responsibility        Pull Request ──▶ Commit
 Module ──▶ Architecture        Pull Request ──▶ File
-Package ──▶ Repository         Release ──▶ Commit
+Package ──▶ Repository         Gap ──▶ File Release ──▶ Commit
 ```
 
 A question like *"which files were touched by the PR that changed the auth flow?"* is a two-hop traversal (PR → Commit → Changed Files), not a similarity guess.
@@ -173,7 +195,7 @@ A question like *"which files were touched by the PR that changed the auth flow?
 | `cliper init [-p path] [--max-file-size kb]` | Full scan → memory build → Cognee sync → backend registration |
 | `cliper auth [github\|cognee]` | Configure credentials (`~/.cliper/config.json`) |
 | `cliper agent connect` | Register local AI coding agents over WebSocket |
-| `cliper sync` | Refresh stale sections of the context document |
+| `cliper sync [--watch]` | Incremental memory sync - content-hashed manifest, uploads only what changed |
 | `cliper status` | Show what is fresh, stale, and in scope |
 | `cliper scope <add\|remove\|watch\|list> [path]` | Manually steer what gets remembered |
 | `cliper export [--format md\|txt]` | Print the context document to stdout |
@@ -186,6 +208,7 @@ A question like *"which files were touched by the PR that changed the auth flow?
 | `~/.cliper/config.json` | GitHub token, Cognee credentials (mode `0600`) |
 | `.cliper/context.md` | Generated context document (per repo) |
 | `.cliper/` scope config | Active/watched paths for this repo |
+| `.cliper/manifest.json` | Sync manifest - content hashes of every uploaded memory |
 
 Cognee credentials can alternatively be provided via environment: `COGNEE_BASE_URL`, `COGNEE_API_KEY`.
 
@@ -195,9 +218,9 @@ Cognee credentials can alternatively be provided via environment: `COGNEE_BASE_U
 
 ## Roadmap
 
-**Done** - repository knowledge graph (all memory types above), GitHub intelligence for issues/PRs, Cognee cloud provider with chunked sync, mobile companion (GitHub sign-in, repository browser, memory chat, live agent presence).
+**Done** - repository knowledge graph (all 13 memory types above), GitHub intelligence for issues/PRs, Cognee cloud provider with chunked sync, **incremental manifest-based sync**, mobile + web companion (GitHub sign-in, repository browser, memory chat, live agent presence), per-user encrypted credentials.
 
-**In progress** - incremental sync (manifest-based, upload only changed memories), agent task execution pipeline (dispatch from phone → headless agent run → streamed edit/test/commit events).
+**In progress** - agent task execution pipeline (dispatch from phone → headless agent run → streamed edit/test/commit events), Cognee-side pruning of removed memories.
 
 **Planned** - multi-provider support (Neo4j, Memgraph, PostgreSQL + pgvector, Graphiti, LanceDB, local JSON), hybrid semantic search, developer SDK (`new Cliper().search(...)`, `.timeline()`, `.graph()`), team workspaces with cross-repository knowledge graphs, and a full agent ecosystem (refactoring, documentation, security review, PR review).
 
