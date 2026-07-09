@@ -79,4 +79,6 @@ Open provider issues are labeled [`provider`](https://github.com/bristinWild/cli
 
 ## Questions
 
-Open a [Discussion](https://github.com/bristinWild/cliper-sdk/discussions) or comment on the issue you're working on. Fast responses are a priority here - expect a reply within a day.
+Open a [Discussion](https://github.com/bristinWild/cliper-sdk/discussions) or comment
+on the issue you're working on. Fast responses are a priority here - expect a reply
+within a day.
