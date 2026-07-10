@@ -27,16 +27,18 @@ export interface MemoryProvider {
         projectName: string,
         memories: MemoryObject[],
         onProgress?: UploadProgress,
-        debugDir?: string
+        debugDir?: string,
+        projectRoot?: string
     ): Promise<void>;
 
     /** Delta upload of pre-diffed chunks (`cliper sync`). */
     uploadChunks(
         projectName: string,
         chunks: MemoryChunk[],
-        onProgress?: UploadProgress
+        onProgress?: UploadProgress,
+        projectRoot?: string
     ): Promise<void>;
 
     /** Natural-language answer over this repository's stored memory. */
-    search(projectName: string, query: string): Promise<string>;
+    search(projectName: string, query: string, projectRoot?: string): Promise<string>;
 }

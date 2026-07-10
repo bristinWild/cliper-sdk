@@ -10,7 +10,7 @@ import { detectGaps } from "../gaps/detector";
 import { buildDependencyMap } from "../scanner/dependencies";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
-import { CogneeProvider } from "../providers/cognee/provider";
+import { resolveProvider } from "../providers/resolve";
 import { MemoryChunk } from "../providers/memoryProvider";
 import {
   diffManifest,
@@ -20,8 +20,6 @@ import {
 } from "../sdk/manifest";
 import { registerRepository } from "../api/backend";
 import { initCommand } from "./init";
-
-const provider = new CogneeProvider();
 
 interface SyncOptions {
   watch?: boolean;
@@ -92,8 +90,13 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
     return;
   }
 
-  if (!provider.isConfigured()) {
-    console.log(chalk.yellow("  Cognee is not configured. Run cliper auth cognee first.\n"));
+  const provider = resolveProvider();
+  if (!provider) {
+    console.log(
+      chalk.yellow(
+        "  No memory provider configured. Run `cliper auth cognee` or `cliper auth local-json` first.\n"
+      )
+    );
     process.exit(1);
   }
 
@@ -159,12 +162,17 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
 
   // ---- Upload only the delta ----
   if (toUpload.length > 0) {
-    const upSpinner = ora(`Syncing ${toUpload.length} memories to Cognee...`).start();
+    const upSpinner = ora(`Syncing ${toUpload.length} memories to ${provider.name}...`).start();
     try {
-      await provider.uploadChunks(projectName, toUpload, (done, total, label) => {
-        upSpinner.text = `Syncing ${toUpload.length} memories... (${done + 1}/${total}: ${label})`;
-      });
-      upSpinner.succeed(chalk.green(`Cognee memory updated (${toUpload.length} memories)`));
+      await provider.uploadChunks(
+        projectName,
+        toUpload,
+        (done, total, label) => {
+          upSpinner.text = `Syncing ${toUpload.length} memories... (${done + 1}/${total}: ${label})`;
+        },
+        projectRoot
+      );
+      upSpinner.succeed(chalk.green(`${provider.name} memory updated (${toUpload.length} memories)`));
     } catch (err: any) {
       upSpinner.fail(chalk.red(`Sync failed: ${err.message}`));
       console.log(chalk.gray("  Manifest not updated — the next sync will retry these memories.\n"));

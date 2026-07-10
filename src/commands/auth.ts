@@ -1,6 +1,7 @@
 import chalk from "chalk";
 import { configureCognee } from "../config/wizard";
 import { configureGithub } from "../config/githubWizard";
+import { configureLocalJson } from "../config/localJsonWizard";
 
 
 export async function authCommand(provider?: string): Promise<void> {
@@ -12,6 +13,11 @@ export async function authCommand(provider?: string): Promise<void> {
 
     if (provider === "cognee") {
         await configureCognee();
+        return;
+    }
+
+    if (provider === "local-json") {
+        await configureLocalJson();
         return;
     }
 

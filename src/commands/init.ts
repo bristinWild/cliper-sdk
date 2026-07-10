@@ -12,13 +12,11 @@ import { getGitContext } from "../scanner/gitContext";
 import { resolveBlockedReferences } from "../resolver/urlFetcher";
 import { detectGaps } from "../gaps/detector";
 import { buildContextDoc } from "../context/builder";
-import { CogneeProvider } from "../providers/cognee/provider";
+import { resolveProvider } from "../providers/resolve";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { registerRepository } from "../api/backend";
 import { hashChunkContent, saveManifest } from "../sdk/manifest";
-
-const provider = new CogneeProvider();
 
 interface InitOptions {
   path: string;
@@ -146,9 +144,10 @@ export async function initCommand(options: InitOptions): Promise<void> {
     }
   }
 
-  // Step 8b: Push to Cognee memory (opt-in — only runs if configured)
-  if (provider.isConfigured()) {
-    const cogneeSpinner = ora("Syncing to Cognee memory...").start();
+  // Step 8b: Push to memory provider (opt-in — only runs if one is configured)
+  const provider = resolveProvider();
+  if (provider) {
+    const cogneeSpinner = ora(`Syncing to ${provider.name} memory...`).start();
     // Set COGNEE_DEBUG=1 to write the exact uploaded chunks to .cliper/cognee-debug/
     // for inspection — useful since the chunked content is otherwise built in
     // memory and sent straight to Cognee, never touching disk.
@@ -171,12 +170,13 @@ export async function initCommand(options: InitOptions): Promise<void> {
         memories,
         (done, total, label) => {
           cogneeSpinner.text =
-            `Syncing to Cognee memory... (${done + 1}/${total}: ${label})`;
+            `Syncing to ${provider.name} memory... (${done + 1}/${total}: ${label})`;
         },
-        debugDir
+        debugDir,
+        projectRoot
       );
 
-      cogneeSpinner.succeed(chalk.green("Cognee memory updated"));
+      cogneeSpinner.succeed(chalk.green(`${provider.name} memory updated`));
       const manifestHashes: Record<string, string> = {};
       for (const m of memories) {
         const c = provider.chunk(m);
@@ -201,7 +201,7 @@ export async function initCommand(options: InitOptions): Promise<void> {
       const rawMessage: string = err.message ?? String(err);
       // const shortMessage = rawMessage.length > 200 ? `${rawMessage.slice(0, 200)}...` : rawMessage;
       const shortMessage = rawMessage;
-      cogneeSpinner.warn(chalk.yellow(`Cognee sync incomplete: ${shortMessage}`));
+      cogneeSpinner.warn(chalk.yellow(`${provider.name} sync incomplete: ${shortMessage}`));
       console.error(rawMessage);
       console.log(chalk.gray("  (Most context was still synced — this does not affect your local context.md)"));
     }

@@ -40,7 +40,7 @@ Persistent Engineering Knowledge
 
 - **Node.js 18+** (native `fetch` is used throughout)
 - A **GitHub Personal Access Token** - `repo` (or `public_repo`) scope, used to fetch issues and pull requests
-- A **Cognee Cloud** account - base URL and API key from your dashboard
+- A memory provider - either a **Cognee Cloud** account (base URL and API key from your dashboard), or the built-in **Local JSON** provider, which needs nothing (see [Memory Providers](#memory-providers))
 
 ## Installation
 
@@ -72,6 +72,7 @@ Credentials are written to `~/.cliper/config.json` with `0600` permissions. You 
 ```bash
 cliper auth github
 cliper auth cognee
+cliper auth local-json
 ```
 
 ### 2. Initialize a repository
@@ -196,8 +197,8 @@ A question like *"which files were touched by the PR that changed the auth flow?
 
 | Command | Description |
 | --- | --- |
-| `cliper init [-p path] [--max-file-size kb]` | Full scan → memory build → Cognee sync → backend registration |
-| `cliper auth [github\|cognee]` | Configure credentials (`~/.cliper/config.json`) |
+| `cliper init [-p path] [--max-file-size kb]` | Full scan → memory build → provider sync → backend registration |
+| `cliper auth [github\|cognee\|local-json]` | Configure credentials (`~/.cliper/config.json`) |
 | `cliper agent connect` | Register local AI coding agents over WebSocket |
 | `cliper sync [--watch]` | Incremental memory sync - content-hashed manifest, uploads only what changed |
 | `cliper status` | Show what is fresh, stale, and in scope |
@@ -209,24 +210,38 @@ A question like *"which files were touched by the PR that changed the auth flow?
 
 | Location | Contents |
 | --- | --- |
-| `~/.cliper/config.json` | GitHub token, Cognee credentials (mode `0600`) |
+| `~/.cliper/config.json` | GitHub token, Cognee credentials, Local JSON settings (mode `0600`) |
 | `.cliper/context.md` | Generated context document (per repo) |
 | `.cliper/` scope config | Active/watched paths for this repo |
 | `.cliper/manifest.json` | Sync manifest - content hashes of every uploaded memory |
+| `.cliper/memory/` | Local JSON provider's stored memories (one JSON file per memory) |
 
 Cognee credentials can alternatively be provided via environment: `COGNEE_BASE_URL`, `COGNEE_API_KEY`.
 
 `cliper init` automatically appends its artifacts to `.gitignore` and untracks accidentally committed `node_modules`.
 
+## Memory Providers
+
+Cliper generates memories the same way regardless of where they end up - a **provider** is just where they're stored and searched. Two ship today:
+
+| Provider | Storage | Search | Setup |
+| --- | --- | --- | --- |
+| **Cognee** | Cloud knowledge graph | Real graph traversal (`GRAPH_COMPLETION`) | `cliper auth cognee` - needs a Cognee Cloud account |
+| **Local JSON** | `.cliper/memory/<dataset>/*.json` in the repo | Keyword scoring + one hop of relationship expansion | `cliper auth local-json` - no account, no network |
+
+`cliper init` and `cliper sync` use whichever provider is configured; if both are, Cognee takes priority. Local JSON is the zero-dependency option - useful for CI, tests, or working fully offline - and every memory it stores is a plain, readable JSON file, so `cat`-ing `.cliper/memory/` is a legitimate way to inspect what Cliper extracted.
+
+Adding another provider (Neo4j, pgvector, ...) means implementing `src/providers/memoryProvider.ts`'s interface - see [CONTRIBUTING.md](./CONTRIBUTING.md#adding-a-memory-provider).
+
 ---
 
 ## Roadmap
 
-**Done** - repository knowledge graph (all 13 memory types above), GitHub intelligence for issues/PRs, Cognee cloud provider with chunked sync, **incremental manifest-based sync**, mobile + web companion (GitHub sign-in, repository browser, memory chat, live agent presence), per-user encrypted credentials.
+**Done** - repository knowledge graph (all 13 memory types above), GitHub intelligence for issues/PRs, Cognee cloud provider with chunked sync, **Local JSON provider** (zero-dependency offline storage), **incremental manifest-based sync**, mobile + web companion (GitHub sign-in, repository browser, memory chat, live agent presence), per-user encrypted credentials.
 
 **In progress** - agent task execution pipeline (dispatch from phone → headless agent run → streamed edit/test/commit events), Cognee-side pruning of removed memories.
 
-**Planned** - multi-provider support (Neo4j, Memgraph, PostgreSQL + pgvector, Graphiti, LanceDB, local JSON), hybrid semantic search, developer SDK (`new Cliper().search(...)`, `.timeline()`, `.graph()`), team workspaces with cross-repository knowledge graphs, and a full agent ecosystem (refactoring, documentation, security review, PR review).
+**Planned** - multi-provider support (Neo4j, Memgraph, PostgreSQL + pgvector, Graphiti, LanceDB), hybrid semantic search, developer SDK (`new Cliper().search(...)`, `.timeline()`, `.graph()`), team workspaces with cross-repository knowledge graphs, and a full agent ecosystem (refactoring, documentation, security review, PR review).
 
 ## Philosophy
 
