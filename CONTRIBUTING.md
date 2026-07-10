@@ -69,13 +69,25 @@ Open provider issues are labeled [`provider`](https://github.com/bristinWild/cli
 - **Sync engine** - deleted-memory cleanup, git-diff-scoped scanning
 - **Docs** - anything that confused you is a bug in the docs
 
+## Fork workflow (required — direct push access is not granted)
+
+1. **Fork** the repo on GitHub (top-right button)
+2. Clone your fork: `git clone https://github.com/<you>/cliper-sdk`
+3. Add upstream: `git remote add upstream https://github.com/bristinWild/cliper-sdk`
+4. Branch: `git checkout -b feat/your-feature`
+5. Push to **your fork**: `git push origin feat/your-feature`
+6. Open a Pull Request: your fork → `bristinWild/cliper-sdk`
+
+Never push directly to `bristinWild/cliper-sdk` — access is intentionally restricted.
+To sync with latest main: `git fetch upstream && git merge upstream/main`
+
 ## Pull requests
 
 - Branch from `main`, one provider/feature per PR
 - `npm run build` must pass (strict TypeScript, no `any` unless unavoidable)
 - **Never commit credentials.** `.env` and `~/.cliper` are gitignored; push protection is enabled and will block token-shaped strings
 - Conventional commits appreciated: `feat(provider): add neo4j provider`
-- `main` requires PRs (ruleset) - direct pushes are blocked
+- `main` requires PRs (ruleset) — direct pushes are blocked
 
 ## Questions
 
