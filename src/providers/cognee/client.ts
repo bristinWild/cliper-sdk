@@ -2,12 +2,23 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { MemoryObject } from "../../sdk/memory/memory";
+import { loadConfig } from "../../config/config";
+import { MemoryChunk } from "../memoryProvider";
 
 
 
 
 const COGNEE_BASE_URL = process.env.COGNEE_BASE_URL ?? "";
 const COGNEE_API_KEY = process.env.COGNEE_API_KEY ?? "";
+
+
+function creds(): { baseUrl: string; apiKey: string } {
+    const cfg = loadConfig();
+    return {
+        baseUrl: process.env.COGNEE_BASE_URL ?? cfg.cognee?.baseUrl ?? "",
+        apiKey: process.env.COGNEE_API_KEY ?? cfg.cognee?.apiKey ?? "",
+    };
+}
 
 interface CogneeConfig {
 
@@ -18,7 +29,8 @@ interface CogneeConfig {
 }
 
 export function isCogneeConfigured(): boolean {
-    return Boolean(COGNEE_BASE_URL && COGNEE_API_KEY);
+    const { baseUrl, apiKey } = creds();
+    return Boolean(baseUrl && apiKey);
 }
 
 function assertConfigured() {
@@ -64,10 +76,7 @@ async function uploadChunk(datasetName: string, label: string, content: string):
     }
 }
 
-export interface MemoryChunk {
-    label: string;
-    content: string;
-}
+
 
 /**
  * The exact self-describing chunk format uploaded to Cognee.

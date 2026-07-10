@@ -11,7 +11,7 @@ import { buildDependencyMap } from "../scanner/dependencies";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
 import { CogneeProvider } from "../providers/cognee/provider";
-import { MemoryChunk } from "../providers/cognee/client";
+import { MemoryChunk } from "../providers/memoryProvider";
 import {
   diffManifest,
   hashChunkContent,
