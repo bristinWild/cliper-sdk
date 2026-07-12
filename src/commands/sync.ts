@@ -10,12 +10,13 @@ import { detectGaps } from "../gaps/detector";
 import { buildDependencyMap } from "../scanner/dependencies";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
-import { resolveProvider } from "../providers/resolve";
-import { MemoryChunk } from "../providers/memoryProvider";
+import { resolveProviders } from "../providers/resolve";
+import { MemoryObject } from "../sdk/memory/memory";
 import {
   diffManifest,
-  hashChunkContent,
+  hashMemory,
   loadManifest,
+  memoryLabel,
   saveManifest,
 } from "../sdk/manifest";
 import { registerRepository } from "../api/backend";
@@ -79,19 +80,11 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
 async function runIncrementalSync(projectRoot: string): Promise<void> {
   const projectName = path.basename(projectRoot);
-  const dataset = `cliper-${projectName}`;
 
   console.log(chalk.bold.cyan("\n  cliper sync\n"));
 
-  const previous = loadManifest(projectRoot);
-  if (!previous) {
-    console.log(chalk.yellow("  No sync manifest found — running a full init to create the baseline.\n"));
-    await initCommand({ path: projectRoot });
-    return;
-  }
-
-  const provider = resolveProvider();
-  if (!provider) {
+  const providers = resolveProviders();
+  if (providers.length === 0) {
     console.log(
       chalk.yellow(
         "  No memory provider configured. Run `cliper auth cognee` or `cliper auth local-json` first.\n"
@@ -100,7 +93,17 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
     process.exit(1);
   }
 
-  // ---- Rebuild memories with the same pipeline init uses ----
+  // Only fall back to a full init if NO provider has a baseline at all — a
+  // provider added later (e.g. Local JSON after Cognee's been syncing for
+  // months) gets its own first upload per-provider below instead.
+  const baselineManifests = providers.map((p) => loadManifest(projectRoot, p.name));
+  if (baselineManifests.every((m) => m === null)) {
+    console.log(chalk.yellow("  No sync manifest found — running a full init to create the baseline.\n"));
+    await initCommand({ path: projectRoot });
+    return;
+  }
+
+  // ---- Rebuild memories ONCE, regardless of how many providers are configured ----
   const spinner = ora("Scanning repository...").start();
 
   const scopeConfig = loadScopeConfig(projectRoot);
@@ -132,65 +135,94 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
     semanticLabels,
   });
 
-  // ---- Diff against the manifest ----
-  const chunkByLabel = new Map<string, MemoryChunk>();
+  // Fingerprint each memory once; chunk() formatting happens later, only
+  // for whatever subset actually needs uploading.
+  const memoryByLabel = new Map<string, MemoryObject>();
   const currentHashes: Record<string, string> = {};
-
   for (const memory of memories) {
-    const chunk = provider.chunk(memory);
-    chunkByLabel.set(chunk.label, chunk);
-    currentHashes[chunk.label] = hashChunkContent(chunk.content);
+    const label = memoryLabel(memory);
+    memoryByLabel.set(label, memory);
+    currentHashes[label] = hashMemory(memory);
   }
 
-  const diff = diffManifest(previous, currentHashes);
-  spinner.succeed(
-    chalk.green(
-      `Scanned ${memories.length} memories — ` +
-      `${diff.added.length} new, ${diff.changed.length} changed, ` +
-      `${diff.removed.length} removed, ${diff.unchanged} unchanged`
-    )
-  );
+  spinner.succeed(chalk.green(`Scanned ${memories.length} memories`));
 
-  const toUpload = [...diff.added, ...diff.changed]
-    .map((label) => chunkByLabel.get(label))
-    .filter((c): c is MemoryChunk => Boolean(c));
+  // ---- Diff + upload independently per provider ----
+  for (const provider of providers) {
+    const dataset = `${provider.name}-cliper-${projectName}`;
+    const previous = loadManifest(projectRoot, provider.name);
 
-  if (toUpload.length === 0 && diff.removed.length === 0) {
-    console.log(chalk.green("\n  ✓ Memory already up to date — nothing to sync.\n"));
-    return;
-  }
-
-  // ---- Upload only the delta ----
-  if (toUpload.length > 0) {
-    const upSpinner = ora(`Syncing ${toUpload.length} memories to ${provider.name}...`).start();
-    try {
-      await provider.uploadChunks(
-        projectName,
-        toUpload,
-        (done, total, label) => {
-          upSpinner.text = `Syncing ${toUpload.length} memories... (${done + 1}/${total}: ${label})`;
-        },
-        projectRoot
-      );
-      upSpinner.succeed(chalk.green(`${provider.name} memory updated (${toUpload.length} memories)`));
-    } catch (err: any) {
-      upSpinner.fail(chalk.red(`Sync failed: ${err.message}`));
-      console.log(chalk.gray("  Manifest not updated — the next sync will retry these memories.\n"));
-      process.exit(1);
+    if (!previous) {
+      // No baseline for this provider yet — full upload instead of diffing against nothing.
+      const baselineSpinner = ora(`${provider.name}: no baseline yet, uploading all memories...`).start();
+      try {
+        await provider.upload(
+          projectName,
+          memories,
+          (done, total, label) => {
+            baselineSpinner.text = `${provider.name}: uploading (${done + 1}/${total}: ${label})`;
+          },
+          undefined,
+          projectRoot
+        );
+        baselineSpinner.succeed(chalk.green(`${provider.name}: baseline uploaded (${memories.length} memories)`));
+        saveManifest(projectRoot, provider.name, dataset, currentHashes);
+      } catch (err: any) {
+        baselineSpinner.fail(chalk.red(`${provider.name}: baseline upload failed: ${err.message}`));
+      }
+      continue;
     }
-  }
 
-  if (diff.removed.length > 0) {
+    const diff = diffManifest(previous, currentHashes);
     console.log(
       chalk.gray(
-        `  ${diff.removed.length} stale memor${diff.removed.length === 1 ? "y" : "ies"} no longer exist locally ` +
-        `(pruned from the graph on the next full cliper init).`
+        `  ${provider.name}: ${diff.added.length} new, ${diff.changed.length} changed, ` +
+        `${diff.removed.length} removed, ${diff.unchanged} unchanged`
       )
     );
-  }
 
-  // ---- Persist the new baseline (removed labels drop out naturally) ----
-  saveManifest(projectRoot, dataset, currentHashes);
+    const toUploadLabels = [...diff.added, ...diff.changed];
+    if (toUploadLabels.length === 0 && diff.removed.length === 0) {
+      console.log(chalk.green(`  ✓ ${provider.name} already up to date.`));
+      continue;
+    }
+
+    if (toUploadLabels.length > 0) {
+      const toUpload = toUploadLabels
+        .map((label) => memoryByLabel.get(label))
+        .filter((m): m is MemoryObject => Boolean(m))
+        .map((m) => provider.chunk(m));
+
+      const upSpinner = ora(`Syncing ${toUpload.length} memories to ${provider.name}...`).start();
+      try {
+        await provider.uploadChunks(
+          projectName,
+          toUpload,
+          (done, total, label) => {
+            upSpinner.text = `${provider.name}: syncing (${done + 1}/${total}: ${label})`;
+          },
+          projectRoot
+        );
+        upSpinner.succeed(chalk.green(`${provider.name} memory updated (${toUpload.length} memories)`));
+      } catch (err: any) {
+        upSpinner.fail(chalk.red(`${provider.name} sync failed: ${err.message}`));
+        console.log(chalk.gray(`  Manifest not updated for ${provider.name} — the next sync will retry these memories.`));
+        continue; // don't save this provider's manifest; don't block the others
+      }
+    }
+
+    if (diff.removed.length > 0) {
+      console.log(
+        chalk.gray(
+          `  ${diff.removed.length} stale memor${diff.removed.length === 1 ? "y" : "ies"} no longer exist locally ` +
+          `for ${provider.name} (pruned on the next full cliper init).`
+        )
+      );
+    }
+
+    // ---- Persist this provider's new baseline (removed labels drop out naturally) ----
+    saveManifest(projectRoot, provider.name, dataset, currentHashes);
+  }
 
   // ---- Bump the backend record so the app shows "Updated just now" ----
   try {
@@ -199,7 +231,7 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
       githubOwner: gitContext.githubOwner,
       githubRepo: gitContext.githubRepo,
       branch: gitContext.branch,
-      dataset,
+      dataset: `cliper-${projectName}`,
     });
   } catch {
     // non-blocking — memory sync already succeeded

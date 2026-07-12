@@ -12,11 +12,11 @@ import { getGitContext } from "../scanner/gitContext";
 import { resolveBlockedReferences } from "../resolver/urlFetcher";
 import { detectGaps } from "../gaps/detector";
 import { buildContextDoc } from "../context/builder";
-import { resolveProvider } from "../providers/resolve";
+import { resolveProviders } from "../providers/resolve";
 import { MemoryBuilder } from "../sdk/memoryBuilder";
 import { buildSemanticLabels } from "../scanner/semanticLabels";
 import { registerRepository } from "../api/backend";
-import { hashChunkContent, saveManifest } from "../sdk/manifest";
+import { hashMemory, memoryLabel, saveManifest } from "../sdk/manifest";
 
 interface InitOptions {
   path: string;
@@ -144,17 +144,9 @@ export async function initCommand(options: InitOptions): Promise<void> {
     }
   }
 
-  // Step 8b: Push to memory provider (opt-in — only runs if one is configured)
-  const provider = resolveProvider();
-  if (provider) {
-    const cogneeSpinner = ora(`Syncing to ${provider.name} memory...`).start();
-    // Set COGNEE_DEBUG=1 to write the exact uploaded chunks to .cliper/cognee-debug/
-    // for inspection — useful since the chunked content is otherwise built in
-    // memory and sent straight to Cognee, never touching disk.
-    const debugDir = process.env.COGNEE_DEBUG
-      ? path.join(cliperDir, "cognee-debug")
-      : undefined;
-
+  // Step 8b: Push to memory providers (opt-in — only runs for configured ones).
+  const providers = resolveProviders();
+  if (providers.length > 0) {
     const memories = await builder.build({
       projectRoot,
       projectName,
@@ -164,46 +156,57 @@ export async function initCommand(options: InitOptions): Promise<void> {
       gitContext,
       semanticLabels,
     });
-    try {
-      await provider.upload(
-        projectName,
-        memories,
-        (done, total, label) => {
-          cogneeSpinner.text =
-            `Syncing to ${provider.name} memory... (${done + 1}/${total}: ${label})`;
-        },
-        debugDir,
-        projectRoot
-      );
 
-      cogneeSpinner.succeed(chalk.green(`${provider.name} memory updated`));
-      const manifestHashes: Record<string, string> = {};
-      for (const m of memories) {
-        const c = provider.chunk(m);
-        manifestHashes[c.label] = hashChunkContent(c.content);
-      }
-      saveManifest(projectRoot, `cliper-${projectName}`, manifestHashes);
+    // Fingerprint each memory once and reuse it for every provider's manifest.
+    const currentHashes: Record<string, string> = {};
+    for (const m of memories) {
+      currentHashes[memoryLabel(m)] = hashMemory(m);
+    }
 
-      // Register repository with Cliper backend
+    for (const provider of providers) {
+      const providerSpinner = ora(`Syncing to ${provider.name} memory...`).start();
+      // Set COGNEE_DEBUG=1 to write the exact uploaded chunks to .cliper/<provider>-debug/
+      // for inspection — useful for providers (like Cognee) whose uploaded
+      // content is otherwise built in memory and sent straight over the wire,
+      // never touching disk.
+      const debugDir = process.env.COGNEE_DEBUG
+        ? path.join(cliperDir, `${provider.name}-debug`)
+        : undefined;
 
-      if (debugDir) {
-        console.log(
-          chalk.gray(
-            `  (Uploaded chunks written to ${debugDir} for inspection)`
-          )
+      try {
+        await provider.upload(
+          projectName,
+          memories,
+          (done, total, label) => {
+            providerSpinner.text =
+              `Syncing to ${provider.name} memory... (${done + 1}/${total}: ${label})`;
+          },
+          debugDir,
+          projectRoot
         );
+
+        providerSpinner.succeed(chalk.green(`${provider.name} memory updated`));
+        saveManifest(projectRoot, provider.name, `${provider.name}-cliper-${projectName}`, currentHashes);
+
+        if (debugDir) {
+          console.log(
+            chalk.gray(
+              `  (Uploaded chunks written to ${debugDir} for inspection)`
+            )
+          );
+        }
+      } catch (err: any) {
+        // Non-blocking: context.md is already built successfully on disk regardless,
+        // and a failure in one provider shouldn't stop the others from syncing.
+        // Cognee's /cognify error payload can include one entry per uploaded chunk
+        // (e.g. 30+ UUIDs) when only one chunk actually fails — truncate to keep
+        // the warning readable instead of dumping the full payload to the terminal.
+        const rawMessage: string = err.message ?? String(err);
+        const shortMessage = rawMessage;
+        providerSpinner.warn(chalk.yellow(`${provider.name} sync incomplete: ${shortMessage}`));
+        console.error(rawMessage);
+        console.log(chalk.gray("  (Most context was still synced — this does not affect your local context.md)"));
       }
-    } catch (err: any) {
-      // Non-blocking: context.md is already built successfully on disk regardless.
-      // Cognee's /cognify error payload can include one entry per uploaded chunk
-      // (e.g. 30+ UUIDs) when only one chunk actually fails — truncate to keep
-      // the warning readable instead of dumping the full payload to the terminal.
-      const rawMessage: string = err.message ?? String(err);
-      // const shortMessage = rawMessage.length > 200 ? `${rawMessage.slice(0, 200)}...` : rawMessage;
-      const shortMessage = rawMessage;
-      cogneeSpinner.warn(chalk.yellow(`${provider.name} sync incomplete: ${shortMessage}`));
-      console.error(rawMessage);
-      console.log(chalk.gray("  (Most context was still synced — this does not affect your local context.md)"));
     }
   }
 

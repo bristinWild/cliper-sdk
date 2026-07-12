@@ -2,19 +2,18 @@ import * as crypto from "crypto";
 import * as fs from "fs";
 import * as path from "path";
 import { getCliperDir } from "../scope/config";
+import { MemoryObject } from "./memory/memory";
 
 /**
- * Sync manifest — the memory of what has already been uploaded.
- *
- * Maps every memory chunk label (`type:id`) to a sha256 of the exact
- * content that was sent to Cognee. `cliper sync` diffs a fresh build
- * against this to upload only what actually changed.
+ * Sync manifest — one per provider, mapping each memory's label (`type:id`)
+ * to a content fingerprint. `cliper sync` diffs a fresh build against each
+ * configured provider's manifest independently.
  */
 export interface SyncManifest {
     version: 1;
     dataset: string;
     syncedAt: string;
-    memories: Record<string, string>; // label -> content sha256
+    memories: Record<string, string>; // label -> content fingerprint
 }
 
 export interface ManifestDiff {
@@ -24,18 +23,44 @@ export interface ManifestDiff {
     unchanged: number;
 }
 
-const MANIFEST_FILE = "manifest.json";
-
 export function hashChunkContent(content: string): string {
     return crypto.createHash("sha256").update(content, "utf-8").digest("hex");
 }
 
-export function manifestPath(projectRoot: string): string {
-    return path.join(getCliperDir(projectRoot), MANIFEST_FILE);
+/** Stable label for a memory, independent of which provider stores it. */
+export function memoryLabel(memory: MemoryObject): string {
+    return `${memory.type}:${memory.id}`;
 }
 
-export function loadManifest(projectRoot: string): SyncManifest | null {
-    const p = manifestPath(projectRoot);
+/**
+ * Canonical content fingerprint for a memory, independent of any
+ * provider's chunk formatting — Cognee's markdown blob and Local JSON's
+ * structured file look nothing alike, but should still agree on whether
+ * the memory changed.
+ */
+export function hashMemory(memory: MemoryObject): string {
+    const canonical = JSON.stringify({
+        id: memory.id,
+        type: memory.type,
+        title: memory.title,
+        content: memory.content,
+        tags: memory.tags ?? [],
+        relationships: memory.relationships ?? [],
+        metadata: memory.metadata ?? {},
+    });
+    return hashChunkContent(canonical);
+}
+
+function manifestFileName(providerName: string): string {
+    return `manifest.${providerName}.json`;
+}
+
+export function manifestPath(projectRoot: string, providerName: string): string {
+    return path.join(getCliperDir(projectRoot), manifestFileName(providerName));
+}
+
+export function loadManifest(projectRoot: string, providerName: string): SyncManifest | null {
+    const p = manifestPath(projectRoot, providerName);
     if (!fs.existsSync(p)) return null;
     try {
         const parsed = JSON.parse(fs.readFileSync(p, "utf-8"));
@@ -48,6 +73,7 @@ export function loadManifest(projectRoot: string): SyncManifest | null {
 
 export function saveManifest(
     projectRoot: string,
+    providerName: string,
     dataset: string,
     hashes: Record<string, string>
 ): void {
@@ -60,7 +86,11 @@ export function saveManifest(
         syncedAt: new Date().toISOString(),
         memories: hashes,
     };
-    fs.writeFileSync(manifestPath(projectRoot), JSON.stringify(manifest, null, 2), "utf-8");
+    fs.writeFileSync(
+        manifestPath(projectRoot, providerName),
+        JSON.stringify(manifest, null, 2),
+        "utf-8"
+    );
 }
 
 export function diffManifest(
