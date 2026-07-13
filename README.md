@@ -2,7 +2,15 @@
 [![license](https://img.shields.io/badge/license-MIT-6D5DFB)](./LICENSE)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-22C55E)](https://github.com/bristinWild/cliper-sdk/issues)
 
+# There are several ways to use Cliper Intelligence
+
+## Use cliper using Cliper APP
+
 ![Chat with your codebase from anywhere](https://raw.githubusercontent.com/bristinWild/cliper-sdk/main/assets/app-flow.gif)
+
+## Use it through Cliper Slack Agent
+
+![Chat with your codebase from Slack app](https://raw.githubusercontent.com/bristinWild/cliper-sdk/main/assets/random-chat1.gif)
 
 # Cliper Memory 
 > **New to Cliper?** Start with the [friendly tour](https://github.com/bristinWild/cliper-sdk/blob/main/About-Cliper.md).

@@ -439,7 +439,7 @@ ${commit.timeAgo}
                     s => s.file === file.relativePath
                 );
 
-            console.log(file.relativePath);
+            // console.log(file.relativePath);
 
             return {
 
