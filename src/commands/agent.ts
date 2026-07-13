@@ -1,5 +1,6 @@
 import chalk from "chalk";
 import ora from "ora";
+import * as dotenv from "dotenv";
 import { execSync } from "child_process";
 import WebSocket from "ws";
 import { getGithubToken } from "../auth/github";
@@ -26,6 +27,7 @@ function detectAgents(): string[] {
 }
 
 export async function agentCommand(action?: string): Promise<void> {
+    dotenv.config();
     if (action !== "connect") {
         console.log(chalk.red(`Unknown action: ${action ?? "(none)"} — try: cliper agent connect`));
         return;

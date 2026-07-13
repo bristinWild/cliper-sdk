@@ -1,6 +1,7 @@
 import { buildDependencyMap, formatDependencyMap } from "../scanner/dependencies";
 import * as fs from "fs";
 import * as path from "path";
+import * as dotenv from "dotenv";
 import simpleGit from "simple-git";
 import chalk from "chalk";
 import ora from "ora";
@@ -27,6 +28,7 @@ interface InitOptions {
 
 
 export async function initCommand(options: InitOptions): Promise<void> {
+  dotenv.config();
   const projectRoot = path.resolve(options.path);
   const builder = new MemoryBuilder();
 

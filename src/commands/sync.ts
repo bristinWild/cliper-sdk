@@ -1,5 +1,6 @@
 import * as fs from "fs";
 import * as path from "path";
+import * as dotenv from "dotenv";
 import chalk from "chalk";
 import ora from "ora";
 import { autoDetectScope } from "../scope/autoScope";
@@ -38,6 +39,7 @@ interface SyncOptions {
  * If nothing changed, no upload and no cognify run at all.
  */
 export async function syncCommand(options: SyncOptions): Promise<void> {
+  dotenv.config();
   const projectRoot = process.cwd();
   const cliperDir = getCliperDir(projectRoot);
 
