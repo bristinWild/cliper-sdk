@@ -43,6 +43,7 @@ function assertConfigured() {
 
 
 async function uploadChunk(datasetName: string, label: string, content: string): Promise<void> {
+    const { baseUrl, apiKey } = creds();
     const tmpPath = path.join(os.tmpdir(), `cliper-${label.replace(/[\/:]/g, "_")}-${Date.now()}.md`);
     fs.writeFileSync(tmpPath, content, "utf-8");
 
@@ -58,9 +59,9 @@ async function uploadChunk(datasetName: string, label: string, content: string):
         );
         form.append("datasetName", datasetName);
 
-        const res = await fetch(`${COGNEE_BASE_URL}/api/v1/add`, {
+        const res = await fetch(`${baseUrl}/api/v1/add`, {
             method: "POST",
-            headers: { "X-Api-Key": COGNEE_API_KEY },
+            headers: { "X-Api-Key": apiKey },
             body: form,
         });
 
@@ -117,7 +118,9 @@ export async function rememberChunks(
     chunks: MemoryChunk[],
     onProgress?: (done: number, total: number, label: string) => void
 ): Promise<void> {
+
     assertConfigured();
+    const { baseUrl, apiKey } = creds();
     if (chunks.length === 0) return;
 
     const BATCH_SIZE = 5;
@@ -131,10 +134,10 @@ export async function rememberChunks(
         );
     }
 
-    const cognifyRes = await fetch(`${COGNEE_BASE_URL}/api/v1/cognify`, {
+    const cognifyRes = await fetch(`${baseUrl}/api/v1/cognify`, {
         method: "POST",
         headers: {
-            "X-Api-Key": COGNEE_API_KEY,
+            "X-Api-Key": apiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({ datasets: [datasetName] }),
@@ -164,8 +167,10 @@ export async function rememberContext(
     ) => void,
     debugDir?: string
 ): Promise<void> {
+
     assertConfigured();
 
+    const { baseUrl, apiKey } = creds();
     const datasetName = `cliper-${projectName}`;
     const chunks = memories.map(buildMemoryChunk);
 
@@ -219,10 +224,10 @@ export async function rememberContext(
         );
     }
 
-    const cognifyRes = await fetch(`${COGNEE_BASE_URL}/api/v1/cognify`, {
+    const cognifyRes = await fetch(`${baseUrl}/api/v1/cognify`, {
         method: "POST",
         headers: {
-            "X-Api-Key": COGNEE_API_KEY,
+            "X-Api-Key": apiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({ datasets: [datasetName] }),
@@ -262,10 +267,12 @@ export async function recallContext(
     const datasetName = `cliper-${projectName}`;
 
 
-    const res = await fetch(`${COGNEE_BASE_URL}/api/v1/search`, {
+    const { baseUrl, apiKey } = creds();
+
+    const res = await fetch(`${baseUrl}/api/v1/search`, {
         method: "POST",
         headers: {
-            "X-Api-Key": COGNEE_API_KEY,
+            "X-Api-Key": apiKey,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
