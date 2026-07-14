@@ -30,6 +30,6 @@ export async function configureGithub(): Promise<void> {
         console.log(chalk.green(`\n✓ Signed in as ${username} — user registered with Cliper.\n`));
     } catch (err: any) {
         console.log(chalk.red(`\n✖ Token saved locally, but backend verification failed: ${err.message}`));
-        console.log(chalk.gray("  Is the Cliper server running on " + "http://localhost:4000?\n"));
+        console.log(chalk.gray("  Is the Cliper server running on " + "https://cliper-backend-production.up.railway.app?\n"));
     }
 }
