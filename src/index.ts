@@ -1,8 +1,4 @@
 #!/usr/bin/env node
-
-import * as dotenv from "dotenv";
-dotenv.config();
-
 import { program } from "commander";
 import { Cliper } from "./sdk/cliper";
 import { syncCommand } from "./commands/sync";

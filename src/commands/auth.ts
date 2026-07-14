@@ -1,10 +1,13 @@
 import chalk from "chalk";
 import { configureCognee } from "../config/wizard";
 import { configureGithub } from "../config/githubWizard";
+import * as dotenv from "dotenv";
 import { configureLocalJson } from "../config/localJsonWizard";
 
 
 export async function authCommand(provider?: string): Promise<void> {
+
+    dotenv.config();
 
     if (provider === "github") {
         await configureGithub();

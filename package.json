@@ -1,10 +1,10 @@
 {
   "name": "cliper-memory",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Transform any repository into a persistent AI memory graph for AI assistants and coding agents.",
   "main": "./dist/index.js",
   "bin": {
-    "cliper": "./dist/index.js"
+    "cliper": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -55,7 +55,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/bristinWild/cliper-sdk.git"
+    "url": "git+https://github.com/bristinWild/cliper-sdk.git"
   },
   "homepage": "https://github.com/bristinWild/cliper-sdk#readme",
   "bugs": {

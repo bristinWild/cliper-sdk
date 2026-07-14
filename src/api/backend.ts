@@ -22,6 +22,11 @@ export async function registerRepository(data: {
         );
     }
 
+    // console.log("Registering repository...");
+    // console.log(data);
+    // console.log(token);
+    // console.log(`${API_URL}/repositories/register`);
+
     const res = await fetch(`${API_URL}/repositories/register`, {
         method: "POST",
         headers: {
