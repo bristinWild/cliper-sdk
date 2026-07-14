@@ -174,6 +174,10 @@ async function runIncrementalSync(projectRoot: string): Promise<void> {
     }
 
     const diff = diffManifest(previous, currentHashes);
+    if (process.env.CLIPER_DEBUG) {
+      console.log("ADDED:", diff.added);
+      console.log("REMOVED:", diff.removed);
+    }
     console.log(
       chalk.gray(
         `  ${provider.name}: ${diff.added.length} new, ${diff.changed.length} changed, ` +
