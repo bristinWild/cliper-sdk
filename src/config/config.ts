@@ -17,6 +17,11 @@ export interface CliperConfig {
         baseUrl: string;
         apiKey: string;
     };
+
+    localJson?: {
+        enabled: boolean;
+        dataDir?: string;
+    };
 }
 
 export interface CliperCogneeConfigx {

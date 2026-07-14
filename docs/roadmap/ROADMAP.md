@@ -174,6 +174,7 @@ Current Focus:
 Current
 
 - [x] Cognee
+- [x] Local JSON
 
 Planned
 
@@ -183,7 +184,6 @@ Planned
 - [ ] Graphiti
 - [ ] LanceDB
 - [ ] Supermemory
-- [ ] Local JSON Provider
 
 ---
 

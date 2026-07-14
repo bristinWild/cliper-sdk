@@ -75,10 +75,12 @@ export async function extractFileContents(
     }
   }
 
-  // Sort by priority
-  const sortedPaths = Array.from(allPaths).sort(
-    (a, b) => getPriority(a) - getPriority(b)
-  );
+  // Sort by priority, then path to ensure deterministic extraction order.
+  const sortedPaths = Array.from(allPaths).sort((a, b) => {
+    const priorityDiff = getPriority(a) - getPriority(b);
+    if (priorityDiff !== 0) return priorityDiff;
+    return a.localeCompare(b);
+  });
 
   const results: FileContent[] = [];
   let totalChars = 0;

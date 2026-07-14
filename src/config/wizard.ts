@@ -71,7 +71,7 @@ export async function configureCognee(): Promise<void> {
         if (githubToken) {
 
 
-            const API_URL = "http://localhost:4000";
+            const API_URL = "https://cliper-backend-production.up.railway.app";
             const res = await fetch(`${API_URL}/auth/cognee`, {
                 method: "POST",
                 headers: {
