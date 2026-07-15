@@ -1,6 +1,6 @@
 {
   "name": "cliper-memory",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Transform any repository into a persistent AI memory graph for AI assistants and coding agents.",
   "main": "./dist/index.js",
   "bin": {

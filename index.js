@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-console.log("cliper v0.1.9");
+console.log("cliper v0.1.10");

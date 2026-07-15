@@ -4,6 +4,7 @@ import { MemoryObject } from "../../sdk/memory/memory";
 import { loadConfig } from "../../config/config";
 import { MemoryChunk } from "../memoryProvider";
 import { getCliperDir } from "../../scope/config";
+import { MemoryType } from "../../sdk/memory/memory";
 
 function safeLabel(label: string): string {
     return label.replace(/[\/:]/g, "_");
@@ -15,7 +16,51 @@ export function isLocalJsonConfigured(): boolean {
 }
 
 export interface SearchResult {
-    memories: Record<string, any>[];
+    query: string;
+    memories: MemoryObject[];
+}
+
+
+export const DEFAULT_RETRIEVAL_ORDER: MemoryType[] = [
+    "file",
+    "architecture",
+    "dependency",
+    "gap",
+    "commit",
+    "repository",
+];
+
+export const TIMELINE_RETRIEVAL_ORDER: MemoryType[] = [
+    "timeline",
+    "commit",
+    "release",
+    "issue",
+    "pull-request",
+];
+
+export const SECURITY_RETRIEVAL_ORDER: MemoryType[] = [
+    "gap",
+    "dependency",
+    "file",
+    "commit",
+];
+
+export const DEFAULT_MAX_RESULTS = 8;
+
+function formatMemories(memories: MemoryObject[]): string {
+    const seen = new Set<string>();
+    const sections: string[] = [];
+
+    for (const memory of memories) {
+        if (seen.has(memory.id)) continue;
+        seen.add(memory.id);
+
+        sections.push(
+            `[${memory.type}] ${memory.title}\n${memory.content}`,
+        );
+    }
+
+    return sections.join("\n\n---\n\n");
 }
 
 /**
@@ -63,9 +108,9 @@ function writeChunk(dir: string, chunk: MemoryChunk): void {
     );
 }
 
-function readAllMemories(dir: string): Array<Record<string, any>> {
+function readAllMemories(dir: string): MemoryObject[] {
     if (!fs.existsSync(dir)) return [];
-    const entries: Array<Record<string, any>> = [];
+    const entries: MemoryObject[] = [];
     for (const f of fs.readdirSync(dir)) {
         if (!f.endsWith(".json")) continue;
         try {
@@ -141,7 +186,7 @@ function tokenize(text: string): string[] {
         .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
 
-function score(tokens: string[], memory: Record<string, any>): number {
+function score(tokens: string[], memory: MemoryObject): number {
     const haystacks = [
         { text: memory.title ?? "", weight: 3 },
         { text: (memory.tags ?? []).join(" "), weight: 2 },
@@ -170,7 +215,8 @@ function score(tokens: string[], memory: Record<string, any>): number {
 export async function recallContext(
     projectRoot: string,
     projectName: string,
-    query: string
+    query: string,
+    retrievalOrder: MemoryType[] = DEFAULT_RETRIEVAL_ORDER,
 ): Promise<string> {
     const dataset = `cliper-${projectName}`;
     const dir = datasetDir(projectRoot, dataset);
@@ -181,8 +227,12 @@ export async function recallContext(
     }
 
     const tokens = tokenize(query);
-    const ranked = memories
-        .map((memory) => ({ memory, score: score(tokens, memory) }))
+
+    const ranked: Array<{ memory: MemoryObject; score: number }> = memories
+        .map((memory) => ({
+            memory,
+            score: score(tokens, memory),
+        }))
         .filter((r) => r.score > 0)
         .sort((a, b) => b.score - a.score);
 
@@ -190,22 +240,58 @@ export async function recallContext(
         return "No stored memory matched that question closely enough to answer.";
     }
 
-    const top = ranked.slice(0, 3).map((r) => r.memory);
+    // Pick the best memory for each preferred type.
+    const bestByType = new Map<MemoryType, MemoryObject>();
 
-    const byId = new Map(memories.map((m) => [m.id, m]));
-    const related = ((top[0].relationships ?? []) as string[])
-        .map((id) => byId.get(id))
-        .filter((m): m is Record<string, any> => Boolean(m))
-        .slice(0, 3);
-
-    const seen = new Set<string>();
-    const sections: string[] = [];
-    for (const m of [...top, ...related]) {
-        if (seen.has(m.id)) continue;
-        seen.add(m.id);
-        sections.push(`[${m.type}] ${m.title}\n${m.content}`);
+    for (const { memory } of ranked) {
+        if (!bestByType.has(memory.type)) {
+            bestByType.set(memory.type, memory);
+        }
     }
 
-    return sections.join("\n\n---\n\n");
+    const top: MemoryObject[] = [];
 
+    for (const type of retrievalOrder) {
+        const memory = bestByType.get(type);
+        if (memory) {
+            top.push(memory);
+        }
+    }
+
+    // Fill remaining slots with highest-ranked memories.
+
+    const seenIds = new Set(top.map((m) => m.id));
+
+    for (const { memory } of ranked) {
+        if (top.length >= DEFAULT_MAX_RESULTS) break;
+
+        if (!seenIds.has(memory.id)) {
+            seenIds.add(memory.id);
+            top.push(memory);
+        }
+    }
+
+    // Expand one hop through explicit relationships.
+    const byId = new Map<string, MemoryObject>(
+        memories.map((m) => [m.id, m]),
+    );
+
+    const related: MemoryObject[] = [];
+
+    for (const memory of top) {
+        for (const id of memory.relationships ?? []) {
+            if (id === memory.id) continue;
+
+            const match = byId.get(id);
+
+            if (match && !seenIds.has(match.id)) {
+                seenIds.add(match.id);
+                related.push(match);
+            }
+        }
+    }
+
+    return formatMemories([...top, ...related]);
 }
+
+
