@@ -4,6 +4,7 @@ import {
     rememberChunks,
     recallContext,
     buildMemoryChunk,
+    SearchResult,
 } from "./client";
 
 import { MemoryObject } from "../../sdk/memory/memory";

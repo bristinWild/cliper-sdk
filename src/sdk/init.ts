@@ -128,21 +128,39 @@ export async function initProject(options: CliperInitOptions) {
     fs.writeFileSync(contextPath, contextDoc, "utf-8");
     buildSpinner.succeed(chalk.green("Context document built"));
 
+    const metadataPath = path.join(cliperDir, "metadata.json");
+
+    fs.writeFileSync(
+        metadataPath,
+        JSON.stringify(
+            {
+                projectName,
+                dataset: `cliper-${projectName}`,
+                generatedAt: new Date().toISOString(),
+            },
+            null,
+            2,
+        ),
+        "utf8",
+    );
+
 
     if (!gitContext.githubOwner || !gitContext.githubRepo) {
-        console.log(chalk.yellow("  ⚠ No GitHub remote detected — skipping backend registration"));
-    } else {
+        console.log(
+            chalk.yellow("  ⚠ No GitHub remote detected — skipping backend registration")
+        );
+    } else if (options.register !== false) {
         const regSpinner = ora("Registering repository with Cliper...").start();
+
         try {
-            if (options.register === false) {
-                await registerRepository({
-                    name: projectName,
-                    githubOwner: gitContext.githubOwner,
-                    githubRepo: gitContext.githubRepo,
-                    branch: gitContext.branch,
-                    dataset: `cliper-${projectName}`,
-                });
-            }
+            await registerRepository({
+                name: projectName,
+                githubOwner: gitContext.githubOwner,
+                githubRepo: gitContext.githubRepo,
+                branch: gitContext.branch,
+                dataset: `cliper-${projectName}`,
+            });
+
             regSpinner.succeed(chalk.green("Repository registered with Cliper"));
         } catch (err: any) {
             regSpinner.fail(chalk.red(`Registration failed: ${err.message}`));
@@ -151,14 +169,15 @@ export async function initProject(options: CliperInitOptions) {
 
     // Step 8b: Push to memory providers (opt-in — only runs for configured ones).
     const providers = resolveProviders();
+    const requestedProviders = options.providers;
 
     const enabledProviders =
-        options.providers && options.providers.length > 0
-            ? providers.filter((p) => options.providers!.includes(p.name))
+        requestedProviders?.length
+            ? providers.filter((p) => requestedProviders.includes(p.name))
             : providers;
 
 
-    if (providers.length > 0) {
+    if (enabledProviders.length > 0) {
         const memories = await builder.build({
             projectRoot,
             projectName,

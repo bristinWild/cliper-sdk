@@ -14,6 +14,10 @@ export function isLocalJsonConfigured(): boolean {
     return Boolean(cfg.localJson?.enabled);
 }
 
+export interface SearchResult {
+    memories: Record<string, any>[];
+}
+
 /**
  * Where this repo's memories live on disk: <root>/.cliper/memory/<dataset>/
  * by default, or a custom directory (relative to the repo root) if the user
@@ -203,4 +207,5 @@ export async function recallContext(
     }
 
     return sections.join("\n\n---\n\n");
+
 }
