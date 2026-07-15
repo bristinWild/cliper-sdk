@@ -22,6 +22,8 @@ import { hashMemory, memoryLabel, saveManifest } from "../sdk/manifest";
 export interface CliperInitOptions {
     path: string;
     maxFileSize?: number;
+    register?: boolean;
+    providers?: string[];
 }
 
 export async function initProject(options: CliperInitOptions) {
@@ -132,13 +134,15 @@ export async function initProject(options: CliperInitOptions) {
     } else {
         const regSpinner = ora("Registering repository with Cliper...").start();
         try {
-            await registerRepository({
-                name: projectName,
-                githubOwner: gitContext.githubOwner,
-                githubRepo: gitContext.githubRepo,
-                branch: gitContext.branch,
-                dataset: `cliper-${projectName}`,
-            });
+            if (options.register === false) {
+                await registerRepository({
+                    name: projectName,
+                    githubOwner: gitContext.githubOwner,
+                    githubRepo: gitContext.githubRepo,
+                    branch: gitContext.branch,
+                    dataset: `cliper-${projectName}`,
+                });
+            }
             regSpinner.succeed(chalk.green("Repository registered with Cliper"));
         } catch (err: any) {
             regSpinner.fail(chalk.red(`Registration failed: ${err.message}`));
@@ -147,6 +151,13 @@ export async function initProject(options: CliperInitOptions) {
 
     // Step 8b: Push to memory providers (opt-in — only runs for configured ones).
     const providers = resolveProviders();
+
+    const enabledProviders =
+        options.providers && options.providers.length > 0
+            ? providers.filter((p) => options.providers!.includes(p.name))
+            : providers;
+
+
     if (providers.length > 0) {
         const memories = await builder.build({
             projectRoot,
@@ -164,7 +175,7 @@ export async function initProject(options: CliperInitOptions) {
             currentHashes[memoryLabel(m)] = hashMemory(m);
         }
 
-        for (const provider of providers) {
+        for (const provider of enabledProviders) {
             const providerSpinner = ora(`Syncing to ${provider.name} memory...`).start();
             // Set COGNEE_DEBUG=1 to write the exact uploaded chunks to .cliper/<provider>-debug/
             // for inspection — useful for providers (like Cognee) whose uploaded
