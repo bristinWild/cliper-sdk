@@ -1,12 +1,7 @@
-import { initCommand } from "../commands/init";
-
-export interface CliperInitOptions {
-    path: string;
-    maxFileSize?: number;
-}
+import { initProject, CliperInitOptions } from "./init";
 
 export class Cliper {
     async init(options: CliperInitOptions): Promise<void> {
-        return initCommand(options);
+        return initProject(options);
     }
 }

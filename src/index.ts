@@ -9,6 +9,9 @@ import { analyzeCommand } from "./commands/analyze";
 import { authCommand } from "./commands/auth";
 import { agentCommand } from "./commands/agent";
 
+export { Cliper } from "./sdk/cliper";
+export type { CliperInitOptions } from "./sdk/init";
+
 
 const { version } = require("../package.json");
 const sdk = new Cliper();
@@ -78,4 +81,6 @@ program
   .argument("<action>", "connect")
   .action(agentCommand);
 
-program.parse(process.argv);
+if (require.main === module) {
+  program.parse(process.argv);
+}
