@@ -4,8 +4,9 @@ import {
     rememberChunks,
     recallContext,
     buildMemoryChunk,
-    SearchResult,
+    formatSearchResult,
 } from "./client";
+import { SearchResult } from "../../sdk/searchResult";
 
 import { MemoryObject } from "../../sdk/memory/memory";
 import { MemoryChunk, MemoryProvider, UploadProgress } from "../memoryProvider";
@@ -49,11 +50,25 @@ export class LocalJsonProvider implements MemoryProvider {
         return rememberChunks(projectRoot, projectName, chunks, onProgress);
     }
 
+    async searchStructured(
+        projectName: string,
+        query: string,
+        projectRoot: string = process.cwd()
+    ): Promise<SearchResult> {
+        return recallContext(projectRoot, projectName, query);
+    }
+
     async search(
         projectName: string,
         query: string,
         projectRoot: string = process.cwd()
     ): Promise<string> {
-        return recallContext(projectRoot, projectName, query);
+        const result = await this.searchStructured(
+            projectName,
+            query,
+            projectRoot,
+        );
+
+        return formatSearchResult(result);
     }
 }

@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { LocalJsonProvider } from "../providers/local-json/provider";
+import { SearchResult } from "./searchResult";
 
 export interface CliperSearchOptions {
     path: string;
@@ -27,6 +28,34 @@ export async function searchProject(options: CliperSearchOptions) {
     );
 
     return provider.search(
+        metadata.projectName,
+        options.query,
+        options.path,
+    );
+}
+
+export async function searchProjectStructured(
+    options: CliperSearchOptions,
+): Promise<SearchResult> {
+    const provider = new LocalJsonProvider();
+
+    const metadataPath = path.join(
+        options.path,
+        ".cliper",
+        "metadata.json",
+    );
+
+    if (!fs.existsSync(metadataPath)) {
+        throw new Error(
+            "Repository is not initialized. Run `cliper init` first."
+        );
+    }
+
+    const metadata = JSON.parse(
+        fs.readFileSync(metadataPath, "utf8")
+    );
+
+    return provider.searchStructured(
         metadata.projectName,
         options.query,
         options.path,

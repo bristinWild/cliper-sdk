@@ -9,8 +9,11 @@ import { analyzeCommand } from "./commands/analyze";
 import { authCommand } from "./commands/auth";
 import { agentCommand } from "./commands/agent";
 
+
 export { Cliper } from "./sdk/cliper";
 export type { CliperInitOptions } from "./sdk/init";
+export type { SearchResult } from "./sdk/searchResult"
+
 
 
 const { version } = require("../package.json");

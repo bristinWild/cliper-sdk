@@ -1,4 +1,5 @@
 import { MemoryObject } from "../sdk/memory/memory";
+import { SearchResult } from "../sdk/searchResult"
 
 /** A self-describing unit of memory as stored by a provider. */
 export interface MemoryChunk {
@@ -40,5 +41,9 @@ export interface MemoryProvider {
     ): Promise<void>;
 
     /** Natural-language answer over this repository's stored memory. */
-    search(projectName: string, query: string, projectRoot?: string): Promise<string>;
+    search(
+        projectName: string,
+        query: string,
+        projectRoot?: string,
+    ): Promise<string>;
 }

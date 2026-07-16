@@ -5,6 +5,7 @@ import { loadConfig } from "../../config/config";
 import { MemoryChunk } from "../memoryProvider";
 import { getCliperDir } from "../../scope/config";
 import { MemoryType } from "../../sdk/memory/memory";
+import { SearchResult } from "../../sdk/searchResult";
 
 function safeLabel(label: string): string {
     return label.replace(/[\/:]/g, "_");
@@ -15,10 +16,7 @@ export function isLocalJsonConfigured(): boolean {
     return Boolean(cfg.localJson?.enabled);
 }
 
-export interface SearchResult {
-    query: string;
-    memories: MemoryObject[];
-}
+
 
 
 export const DEFAULT_RETRIEVAL_ORDER: MemoryType[] = [
@@ -45,6 +43,61 @@ export const SECURITY_RETRIEVAL_ORDER: MemoryType[] = [
     "commit",
 ];
 
+
+function chooseRetrievalOrder(query: string): MemoryType[] {
+    const q = query.toLowerCase();
+
+    if (
+        q.includes("architecture") ||
+        q.includes("design") ||
+        q.includes("module") ||
+        q.includes("flow")
+    ) {
+        return [
+            "architecture",
+            "file",
+            "dependency",
+            "repository",
+            "commit",
+            "gap",
+        ];
+    }
+
+    if (
+        q.includes("dependency") ||
+        q.includes("package") ||
+        q.includes("import")
+    ) {
+        return [
+            "dependency",
+            "file",
+            "architecture",
+            "repository",
+            "commit",
+        ];
+    }
+
+    if (
+        q.includes("security") ||
+        q.includes("vulnerability") ||
+        q.includes("bug") ||
+        q.includes("issue")
+    ) {
+        return SECURITY_RETRIEVAL_ORDER;
+    }
+
+    if (
+        q.includes("history") ||
+        q.includes("timeline") ||
+        q.includes("commit") ||
+        q.includes("release")
+    ) {
+        return TIMELINE_RETRIEVAL_ORDER;
+    }
+
+    return DEFAULT_RETRIEVAL_ORDER;
+}
+
 export const DEFAULT_MAX_RESULTS = 8;
 
 function formatMemories(memories: MemoryObject[]): string {
@@ -61,6 +114,54 @@ function formatMemories(memories: MemoryObject[]): string {
     }
 
     return sections.join("\n\n---\n\n");
+}
+
+export function formatSearchResult(result: SearchResult): string {
+    const sections: string[] = [];
+
+    if (result.architecture.length) {
+        sections.push(
+            "## Architecture\n\n" +
+            formatMemories(result.architecture),
+        );
+    }
+
+    if (result.files.length) {
+        sections.push(
+            "## Files\n\n" +
+            formatMemories(result.files),
+        );
+    }
+
+    if (result.dependencies.length) {
+        sections.push(
+            "## Dependencies\n\n" +
+            formatMemories(result.dependencies),
+        );
+    }
+
+    if (result.repository.length) {
+        sections.push(
+            "## Repository\n\n" +
+            formatMemories(result.repository),
+        );
+    }
+
+    if (result.commits.length) {
+        sections.push(
+            "## Commits\n\n" +
+            formatMemories(result.commits),
+        );
+    }
+
+    if (result.gaps.length) {
+        sections.push(
+            "## Gaps\n\n" +
+            formatMemories(result.gaps),
+        );
+    }
+
+    return sections.join("\n\n");
 }
 
 /**
@@ -186,20 +287,38 @@ function tokenize(text: string): string[] {
         .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
 
-function score(tokens: string[], memory: MemoryObject): number {
+function score(
+    tokens: string[],
+    memory: MemoryObject,
+): number {
+    let total = 0;
+
+    // Strong boost for memory type matching
+    const type = memory.type.toLowerCase();
+
+    for (const token of tokens) {
+        if (type.includes(token)) {
+            total += 5;
+        }
+    }
+
     const haystacks = [
-        { text: memory.title ?? "", weight: 3 },
-        { text: (memory.tags ?? []).join(" "), weight: 2 },
+        { text: memory.title ?? "", weight: 4 },
+        { text: (memory.tags ?? []).join(" "), weight: 3 },
+        { text: (memory.relationships ?? []).join(" "), weight: 2 },
         { text: memory.content ?? "", weight: 1 },
     ];
 
-    let total = 0;
     for (const { text, weight } of haystacks) {
         const lower = String(text).toLowerCase();
+
         for (const token of tokens) {
-            if (lower.includes(token)) total += weight;
+            if (lower.includes(token)) {
+                total += weight;
+            }
         }
     }
+
     return total;
 }
 
@@ -216,17 +335,25 @@ export async function recallContext(
     projectRoot: string,
     projectName: string,
     query: string,
-    retrievalOrder: MemoryType[] = DEFAULT_RETRIEVAL_ORDER,
-): Promise<string> {
+): Promise<SearchResult> {
     const dataset = `cliper-${projectName}`;
     const dir = datasetDir(projectRoot, dataset);
     const memories = readAllMemories(dir);
 
     if (memories.length === 0) {
-        return "No local memory found for this repository. Run `cliper init` first.";
+        return {
+            query,
+            architecture: [],
+            files: [],
+            dependencies: [],
+            repository: [],
+            commits: [],
+            gaps: [],
+        };
     }
-
     const tokens = tokenize(query);
+
+    const retrievalOrder = chooseRetrievalOrder(query);
 
     const ranked: Array<{ memory: MemoryObject; score: number }> = memories
         .map((memory) => ({
@@ -237,7 +364,15 @@ export async function recallContext(
         .sort((a, b) => b.score - a.score);
 
     if (ranked.length === 0) {
-        return "No stored memory matched that question closely enough to answer.";
+        return {
+            query,
+            architecture: [],
+            files: [],
+            dependencies: [],
+            repository: [],
+            commits: [],
+            gaps: [],
+        };
     }
 
     // Pick the best memory for each preferred type.
@@ -280,8 +415,6 @@ export async function recallContext(
 
     for (const memory of top) {
         for (const id of memory.relationships ?? []) {
-            if (id === memory.id) continue;
-
             const match = byId.get(id);
 
             if (match && !seenIds.has(match.id)) {
@@ -291,7 +424,48 @@ export async function recallContext(
         }
     }
 
-    return formatMemories([...top, ...related]);
+    const all = [...top, ...related];
+
+    const result: SearchResult = {
+        query,
+
+        architecture: [],
+        files: [],
+        dependencies: [],
+        repository: [],
+        commits: [],
+        gaps: [],
+    };
+
+    for (const memory of all) {
+        switch (memory.type) {
+            case "architecture":
+                result.architecture.push(memory);
+                break;
+
+            case "file":
+                result.files.push(memory);
+                break;
+
+            case "dependency":
+                result.dependencies.push(memory);
+                break;
+
+            case "repository":
+                result.repository.push(memory);
+                break;
+
+            case "commit":
+                result.commits.push(memory);
+                break;
+
+            case "gap":
+                result.gaps.push(memory);
+                break;
+        }
+    }
+
+    return result;
 }
 
 
