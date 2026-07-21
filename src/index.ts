@@ -12,8 +12,9 @@ import { agentCommand } from "./commands/agent";
 
 export { Cliper } from "./sdk/cliper";
 export type { CliperInitOptions } from "./sdk/init";
-export type { SearchResult } from "./sdk/searchResult"
-
+export type { SearchResult } from "./sdk/searchResult";
+export type { RetrievalProfile } from "./sdk/retrieval";
+export { searchProject, searchProjectStructured } from "./sdk/search";
 
 
 const { version } = require("../package.json");

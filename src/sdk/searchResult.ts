@@ -9,4 +9,5 @@ export interface SearchResult {
     repository: MemoryObject[];
     commits: MemoryObject[];
     gaps: MemoryObject[];
+    packages: MemoryObject[];
 }

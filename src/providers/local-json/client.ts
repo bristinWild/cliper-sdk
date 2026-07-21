@@ -7,6 +7,8 @@ import { getCliperDir } from "../../scope/config";
 import { MemoryType } from "../../sdk/memory/memory";
 import { SearchResult } from "../../sdk/searchResult";
 
+import { DEFAULT_RETRIEVAL_ORDER, TIMELINE_RETRIEVAL_ORDER, SECURITY_RETRIEVAL_ORDER } from "../../sdk/retrieval";
+
 function safeLabel(label: string): string {
     return label.replace(/[\/:]/g, "_");
 }
@@ -17,86 +19,15 @@ export function isLocalJsonConfigured(): boolean {
 }
 
 
-
-
-export const DEFAULT_RETRIEVAL_ORDER: MemoryType[] = [
-    "file",
-    "architecture",
-    "dependency",
-    "gap",
-    "commit",
-    "repository",
-];
-
-export const TIMELINE_RETRIEVAL_ORDER: MemoryType[] = [
-    "timeline",
-    "commit",
-    "release",
-    "issue",
-    "pull-request",
-];
-
-export const SECURITY_RETRIEVAL_ORDER: MemoryType[] = [
-    "gap",
-    "dependency",
-    "file",
-    "commit",
-];
-
-
-function chooseRetrievalOrder(query: string): MemoryType[] {
-    const q = query.toLowerCase();
-
-    if (
-        q.includes("architecture") ||
-        q.includes("design") ||
-        q.includes("module") ||
-        q.includes("flow")
-    ) {
-        return [
-            "architecture",
-            "file",
-            "dependency",
-            "repository",
-            "commit",
-            "gap",
-        ];
-    }
-
-    if (
-        q.includes("dependency") ||
-        q.includes("package") ||
-        q.includes("import")
-    ) {
-        return [
-            "dependency",
-            "file",
-            "architecture",
-            "repository",
-            "commit",
-        ];
-    }
-
-    if (
-        q.includes("security") ||
-        q.includes("vulnerability") ||
-        q.includes("bug") ||
-        q.includes("issue")
-    ) {
-        return SECURITY_RETRIEVAL_ORDER;
-    }
-
-    if (
-        q.includes("history") ||
-        q.includes("timeline") ||
-        q.includes("commit") ||
-        q.includes("release")
-    ) {
-        return TIMELINE_RETRIEVAL_ORDER;
-    }
-
-    return DEFAULT_RETRIEVAL_ORDER;
+export function listMemoriesByType(
+    projectRoot: string,
+    projectName: string,
+    type: string,
+): MemoryObject[] {
+    const dir = datasetDir(projectRoot, `cliper-${projectName}`);
+    return readAllMemories(dir).filter((m) => m.type === type) as MemoryObject[];
 }
+
 
 export const DEFAULT_MAX_RESULTS = 8;
 
@@ -335,10 +266,12 @@ export async function recallContext(
     projectRoot: string,
     projectName: string,
     query: string,
+    retrievalOrder: MemoryType[] = DEFAULT_RETRIEVAL_ORDER,
 ): Promise<SearchResult> {
     const dataset = `cliper-${projectName}`;
     const dir = datasetDir(projectRoot, dataset);
     const memories = readAllMemories(dir);
+
 
     if (memories.length === 0) {
         return {
@@ -346,6 +279,7 @@ export async function recallContext(
             architecture: [],
             files: [],
             dependencies: [],
+            packages: [],
             repository: [],
             commits: [],
             gaps: [],
@@ -353,7 +287,6 @@ export async function recallContext(
     }
     const tokens = tokenize(query);
 
-    const retrievalOrder = chooseRetrievalOrder(query);
 
     const ranked: Array<{ memory: MemoryObject; score: number }> = memories
         .map((memory) => ({
@@ -369,6 +302,7 @@ export async function recallContext(
             architecture: [],
             files: [],
             dependencies: [],
+            packages: [],
             repository: [],
             commits: [],
             gaps: [],
@@ -432,6 +366,7 @@ export async function recallContext(
         architecture: [],
         files: [],
         dependencies: [],
+        packages: [],
         repository: [],
         commits: [],
         gaps: [],
@@ -449,6 +384,10 @@ export async function recallContext(
 
             case "dependency":
                 result.dependencies.push(memory);
+                break;
+
+            case "package":
+                result.packages.push(memory);
                 break;
 
             case "repository":

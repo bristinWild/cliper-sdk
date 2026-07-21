@@ -8,7 +8,10 @@ import {
 } from "./client";
 import { SearchResult } from "../../sdk/searchResult";
 
-import { MemoryObject } from "../../sdk/memory/memory";
+import {
+    MemoryObject,
+    MemoryType,
+} from "../../sdk/memory/memory";
 import { MemoryChunk, MemoryProvider, UploadProgress } from "../memoryProvider";
 
 /**
@@ -53,20 +56,28 @@ export class LocalJsonProvider implements MemoryProvider {
     async searchStructured(
         projectName: string,
         query: string,
-        projectRoot: string = process.cwd()
+        projectRoot = process.cwd(),
+        retrievalOrder?: MemoryType[],
     ): Promise<SearchResult> {
-        return recallContext(projectRoot, projectName, query);
+        return recallContext(
+            projectRoot,
+            projectName,
+            query,
+            retrievalOrder,
+        );
     }
 
     async search(
         projectName: string,
         query: string,
-        projectRoot: string = process.cwd()
+        projectRoot = process.cwd(),
+        retrievalOrder?: MemoryType[],
     ): Promise<string> {
-        const result = await this.searchStructured(
+        const result = await recallContext(
+            projectRoot,
             projectName,
             query,
-            projectRoot,
+            retrievalOrder,
         );
 
         return formatSearchResult(result);

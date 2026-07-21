@@ -9,6 +9,7 @@ import {
 import { SearchResult } from "./searchResult";
 
 
+
 export class Cliper {
     async init(options: CliperInitOptions) {
         return initProject(options);
